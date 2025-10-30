@@ -13,6 +13,7 @@ const joinRoomBtn = document.querySelector('.joinRoom');
 const nameInputEl = document.querySelector('.nameInput');
 const errorDiv = document.querySelector('.error-div');
 const roomInfo = document.querySelector('.roomInfo');
+const playersListDiv = document.getElementById('playersList');
 const roomCodeInput = document.querySelector('.roomCode');
 
 socket.on('message', (data) => {
@@ -22,19 +23,23 @@ socket.on('message', (data) => {
     chatDivEl.appendChild(p);
 });
 
-socket.on('room-joined', (roomCode) => {
+socket.on('room-joined', ({userNickname, roomCode}) => {
     currentRoom = roomCode;
-    roomInfo.textContent = `Приєднався до: ${roomCode}`;
+    userNickname = nameInputEl.value.trim();
+    roomInfo.textContent = `${userNickname} приєднався до: ${roomCode}`;
     nameInputEl.value = '';
     roomCodeInput.value = '';
 });
 
-socket.on('room-created', (roomCode) => {
+socket.on('room-created', ({playerName, roomCode}) => {
     currentRoom = roomCode;
-    roomInfo.textContent = `Твоя кімната: ${roomCode}`;
+    roomInfo.textContent = `${playerName}, твоя кімната: ${roomCode}`;
     nameInputEl.value = '';
 });
 
+socket.on('players-update', namesArr => {
+    playersListDiv.textContent = namesArr.join(', ');
+});
 
 const createRoom = () => {
     errorDiv.innerHTML =  '';
@@ -83,10 +88,3 @@ messageSendBtnEl.addEventListener('click', () => {
 
 createRoomBtn.addEventListener('click', createRoom);
 joinRoomBtn.addEventListener('click', joinRoom);
-
-
-
-
-
-
-
