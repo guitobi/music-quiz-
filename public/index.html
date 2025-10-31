@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Music-Quiz</title>
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="game.js"></script>
 </head>
 <body>
     <input type="text" id="messageInput" placeholder="Enter your message">
@@ -15,12 +17,12 @@
         <button class="createRoom">Create room</button>
         <input class="roomCode" placeholder="Enter room code">
         <button class="joinRoom" type="button">Join</button>
+        <button class="startGame" hidden>Start Game</button>
         <div class="error-div"></div>
         <div id="playersList"></div>
         <div class="roomInfo"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="game.js"></script>
 </body>
 </html>

@@ -1,32 +1,34 @@
 const socket = io(); 
 
 let currentRoom = null;
+let currentUserNickname = null;
 
 socket.emit('hello', 'Hello from client');
 socket.on('response', data => console.log(data));
 
+console.log(window.location);
 const messageSendBtnEl = document.querySelector('.btn');
 const inputEl = document.querySelector('#messageInput');
 const chatDivEl = document.querySelector('.message');
 const createRoomBtn = document.querySelector('.createRoom');
 const joinRoomBtn = document.querySelector('.joinRoom');
+const startGameBtn = document.querySelector('.startGame');
 const nameInputEl = document.querySelector('.nameInput');
 const errorDiv = document.querySelector('.error-div');
 const roomInfo = document.querySelector('.roomInfo');
 const playersListDiv = document.getElementById('playersList');
 const roomCodeInput = document.querySelector('.roomCode');
 
-socket.on('message', (data) => {
-    console.log('Отримав повідомлення:', data);
+socket.on('message', ({userNickname, text}) => {
+    console.log('Отримав повідомлення:', `${userNickname}: ${text}`);
     const p = document.createElement('p');
-    p.textContent = data;
+    p.textContent = `${userNickname}: ${text}`;
     chatDivEl.appendChild(p);
 });
 
 socket.on('room-joined', ({userNickname, roomCode}) => {
     currentRoom = roomCode;
-    userNickname = nameInputEl.value.trim();
-    roomInfo.textContent = `${userNickname} приєднався до: ${roomCode}`;
+    roomInfo.textContent = `${userNickname.trim()} приєднався до: ${roomCode}`;
     nameInputEl.value = '';
     roomCodeInput.value = '';
 });
@@ -41,6 +43,10 @@ socket.on('players-update', namesArr => {
     playersListDiv.textContent = namesArr.join(', ');
 });
 
+socket.on('game-started', () => {
+    window.location.href = 'game.html';
+});
+
 const createRoom = () => {
     errorDiv.innerHTML =  '';
     const userNickname = nameInputEl.value.trim();
@@ -50,7 +56,9 @@ const createRoom = () => {
         errorDiv.appendChild(errorP);
         return;
     } else {
+        currentUserNickname = userNickname;
         socket.emit('create-room', userNickname);
+        startGameBtn.removeAttribute('hidden');
     }
 };
 
@@ -67,10 +75,16 @@ const joinRoom = () => {
     } else {
         socket.emit('join-room', {userNickname, roomCode});
         currentRoom = roomCode;
+        currentUserNickname = userNickname;
         roomCodeInput.value = '';
         nameInputEl.value = '';
     }
     
+};
+
+const startGame = () => {
+    console.log('старт натиснутий')
+    socket.emit('start-game', {roomCode: currentRoom});
 };
 
 messageSendBtnEl.addEventListener('click', () => {
@@ -80,6 +94,7 @@ messageSendBtnEl.addEventListener('click', () => {
     }
     
     socket.emit('message', {
+        userNickname: currentUserNickname,
         roomCode: currentRoom,
         text: inputEl.value
     });
@@ -88,3 +103,4 @@ messageSendBtnEl.addEventListener('click', () => {
 
 createRoomBtn.addEventListener('click', createRoom);
 joinRoomBtn.addEventListener('click', joinRoom);
+startGameBtn.addEventListener('click', startGame);

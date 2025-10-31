@@ -15,29 +15,46 @@ const rooms = {};
 
 io.on('connection', socket => {
     console.log('User is connected');
-    socket.on('message' , ({roomCode, text}) => {
-       io.to(roomCode).emit('message', text);
+    
+    socket.on('message' , ({userNickname, roomCode, text}) => {
+       io.to(roomCode).emit('message', {userNickname, text});
     });
+
     socket.on('create-room', playerName => {
         const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         rooms[roomCode] = {};
         rooms[roomCode][socket.id] = { name: playerName };
+        socket.room = roomCode;
         socket.join(roomCode);
         socket.emit('room-created', ({playerName , roomCode}));
         io.to(roomCode).emit('players-update', getNames(rooms[roomCode]));
     });
+
     socket.on('join-room', ({userNickname, roomCode}) => {
         console.log(`Гравець ${userNickname} приєднується до ${roomCode}`);
         console.log('До:', rooms[roomCode]);
 
         socket.join(roomCode);
         rooms[roomCode][socket.id] = { name: userNickname };
+        socket.room = roomCode;
 
         console.log('Після:', rooms[roomCode]);
 
         socket.emit('room-joined', ({userNickname, roomCode}));
         io.to(roomCode).emit('players-update', getNames(rooms[roomCode]));
     });
+
+    socket.on('disconnect', () => {
+        if (socket.room && rooms[socket.room][socket.id]) {
+            delete rooms[socket.room][socket.id];
+            io.to(socket.room).emit('players-update', getNames(rooms[socket.room]));
+            if (Object.keys(rooms[socket.room]).length === 0) delete rooms[socket.room];
+       }
+    });
+
+    socket.on('start-game', (roomCode) => {
+        io.to(roomCode).emit('game-started');
+    })
 });
 
 const getNames = (rooms) => {
