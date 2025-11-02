@@ -40,11 +40,11 @@ socket.on('room-created', ({playerName, roomCode}) => {
 });
 
 socket.on('players-update', namesArr => {
-    playersListDiv.textContent = namesArr.join(', ');
+    playersListDiv.textContent = namesArr.join(', \n');
 });
 
 socket.on('game-started', () => {
-    window.location.href = 'game.html';
+    window.location.href = `game.html?roomCode=${currentRoom}&nickname=${currentUserNickname}`;
 });
 
 const createRoom = () => {
@@ -83,7 +83,6 @@ const joinRoom = () => {
 };
 
 const startGame = () => {
-    console.log('старт натиснутий')
     socket.emit('start-game', {roomCode: currentRoom});
 };
 
