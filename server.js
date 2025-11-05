@@ -2,12 +2,15 @@ import 'dotenv/config';
 import express from 'express'
 import http from 'http'
 import { Server } from "socket.io";
-import { brotliDecompress } from 'zlib';
-// import { SpotifyApi } from '@spotify/web-api-ts-sdk';
+import SpotifyWebApi from  'spotify-web-api-node'
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+const SpotifyApi = new SpotifyWebApi({
+    clientId: process.env.SPOTIFY_CLIENT_ID,
+    clientSecret: process.env.SPOTIFY_CLIENT_SECRET
+});
 const port = 3030;
 
 app.use(express.static('public'))
@@ -70,6 +73,29 @@ io.on('connection', socket => {
         socket.room = roomCode;
         broadcastPlayersUpdate(roomCode);
     });
+
+    socket.on('start-round', async (roomCode) => {
+        try {
+            const question = await generateQuestion();
+            rooms[roomCode].currentCorrectAnswer = question.artistName;
+            io.to(roomCode).emit('new-round', question);    
+        } catch (err) {
+            console.error(err);
+        }
+    });
+
+    socket.on('submit-button', ({ roomCode, nickname, answer}) => {
+        if (!roomCode || !nickname || !answer) return;
+        const resultRight = `${nickname} answer right`;
+        const resultWrong = `${nickname} answer wrong`;
+        if (answer === rooms[roomCode].currentCorrectAnswer) {
+            io.to(roomCode).emit('submit-result', resultRight);
+            io.to(roomCode).emit('round-over');
+        } else {
+            io.to(roomCode).emit('submit-result', resultWrong);
+            io.to(roomCode).emit('round-over');
+        }
+    });
 });
 
 const getNames = (rooms) => {
@@ -80,6 +106,45 @@ const getNames = (rooms) => {
 
 const broadcastPlayersUpdate = (roomCode) => {
     io.to(roomCode).emit('players-update', getNames(rooms[roomCode].players));
+};
+
+const generateQuestion = async () => {
+    const playlist = await SpotifyApi.getPlaylist('5ieJqeLJjjI8iJWaxeBLuK');
+    const tracks = playlist.body.tracks.items.map(item => ({ name: item.track.name, artist: item.track.artists[0].name }));  //масив об'єктів з назвою пісні і виконавцем
+    const fourTracks = [];
+    if (tracks.length < 4) throw new Error('Недостатньо треків у плейлисті');
+
+    while (fourTracks.length < 4) {
+        const randomIndex = Math.floor(Math.random() * tracks.length);
+        if (fourTracks.includes(tracks[randomIndex])) {
+            continue;
+        } else {
+            fourTracks.push(tracks[randomIndex]);
+        }
+    };
+
+    const correctTrack = fourTracks[0]; // об'єкт з аристом і треком
+    const options = shuffle(fourTracks.map(i => i.artist)); // перемішка
+    return {
+        trackName: correctTrack.name,
+        artistName: correctTrack.artist,
+        options: options
+    }
+};
+
+// допоміжна хуйня для перемішування
+const shuffle = (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+};
+
+const initializeSpotify = async () => {
+    const cleintCrd = await SpotifyApi.clientCredentialsGrant();
+    const accessToken = cleintCrd.body.access_token;
+    SpotifyApi.setAccessToken(accessToken);
 }
 
 // app.get('/api/rooms', (req, res) => {
@@ -97,7 +162,15 @@ const broadcastPlayersUpdate = (roomCode) => {
 //     });
 // });
 
-
-server.listen(port, () => {
+const startServer = async () => {
+    await initializeSpotify();
+    setInterval(initializeSpotify, 3300000);
+    server.listen(port, () => {
     console.log(`Server started on port ${port}`)
 });
+};
+
+
+startServer();
+
+

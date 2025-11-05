@@ -2,6 +2,7 @@ const socket = io();
 
 let currentRoom = null;
 let currentUserNickname = null;
+let isHost = false;
 
 socket.emit('hello', 'Hello from client');
 socket.on('response', data => console.log(data));
@@ -44,10 +45,11 @@ socket.on('players-update', namesArr => {
 });
 
 socket.on('game-started', () => {
-    window.location.href = `game.html?roomCode=${currentRoom}&nickname=${currentUserNickname}`;
+    window.location.href = `game.html?roomCode=${currentRoom}&nickname=${currentUserNickname}&isHost=${isHost}`;
 });
 
 const createRoom = () => {
+    isHost = true;
     errorDiv.innerHTML =  '';
     const userNickname = nameInputEl.value.trim();
     if(userNickname === '') {
