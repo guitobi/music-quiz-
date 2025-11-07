@@ -8,18 +8,28 @@
     <script defer src="game.js"></script>
 </head>
 <body>
-    <input type="text" id="messageInput" placeholder="Enter your message">
-    <button class="btn">Send</button>
-    <div class="message"></div>
 
     <div class="lobby">
-        <input class="nameInput" placeholder="Your name: ">
-        <button class="createRoom">Create room</button>
-        <input class="roomCode" placeholder="Enter room code">
-        <button class="joinRoom" type="button">Join</button>
+
+        <div class="nameContainer">
+            <input class="nameInput" placeholder="Your name: ">
+            <button class="createRoom">Create room</button>
+        </div>
+
+        <div class="joinContainer">
+            <input class="roomCode" placeholder="Enter room code">
+            <button class="joinRoom" type="button">Join room</button>
+        </div>
+
+        <div class="messageContainer">
+            <input type="text" id="messageInput" placeholder="Enter your message">
+            <button class="btn">Send</button>
+        </div>
+
         <button class="startGame" hidden>Start Game</button>
+        
         <div class="error-div"></div>
-        <div id="playersList"></div>
+        <div id="playerList"></div>
         <div class="roomInfo"></div>
     </div>
 

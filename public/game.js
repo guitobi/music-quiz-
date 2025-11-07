@@ -7,7 +7,6 @@ let isHost = false;
 socket.emit('hello', 'Hello from client');
 socket.on('response', data => console.log(data));
 
-console.log(window.location);
 const messageSendBtnEl = document.querySelector('.btn');
 const inputEl = document.querySelector('#messageInput');
 const chatDivEl = document.querySelector('.message');
@@ -17,7 +16,7 @@ const startGameBtn = document.querySelector('.startGame');
 const nameInputEl = document.querySelector('.nameInput');
 const errorDiv = document.querySelector('.error-div');
 const roomInfo = document.querySelector('.roomInfo');
-const playersListDiv = document.getElementById('playersList');
+const playersListDiv = document.getElementById('playerList');
 const roomCodeInput = document.querySelector('.roomCode');
 
 socket.on('message', ({userNickname, text}) => {
@@ -40,15 +39,15 @@ socket.on('room-created', ({playerName, roomCode}) => {
     nameInputEl.value = '';
 });
 
-socket.on('players-update', namesArr => {
-    playersListDiv.textContent = namesArr.join(', \n');
+socket.on('players-update', players => {
+    playersListDiv.innerText = players.map(p => `${p.name}`).join('\n');
 });
 
 socket.on('game-started', () => {
     window.location.href = `game.html?roomCode=${currentRoom}&nickname=${currentUserNickname}&isHost=${isHost}`;
 });
 
-const createRoom = () => {
+const createRoom = async () => {
     isHost = true;
     errorDiv.innerHTML =  '';
     const userNickname = nameInputEl.value.trim();
@@ -58,13 +57,26 @@ const createRoom = () => {
         errorDiv.appendChild(errorP);
         return;
     } else {
-        currentUserNickname = userNickname;
-        socket.emit('create-room', userNickname);
-        startGameBtn.removeAttribute('hidden');
-    }
+        try {
+            currentUserNickname = userNickname;
+            const res = await fetch('/api/rooms', {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                playerName: currentUserNickname
+            })
+            });
+            const data = await res.json();
+            const roomCodeParsed = data.roomCode;
+            socket.emit('join-room', {userNickname, roomCode: roomCodeParsed});
+            startGameBtn.removeAttribute('hidden');
+        } catch (err) {
+            console.error(err);
+        }
+    };
 };
 
-const joinRoom = () => {
+const joinRoom = async () => {
     console.log(`Checking Nickname: "${nameInputEl.value}", Room Code: "${roomCodeInput.value}"`);
     errorDiv.innerHTML =  '';
     const userNickname = nameInputEl.value.trim();
@@ -75,13 +87,26 @@ const joinRoom = () => {
         errorDiv.appendChild(errorP);
         return;
     } else {
+        try {
+        const res = await fetch(`/api/rooms/${roomCode}`);
+        if (!res.ok) {
+            errorDiv.textContent = `ЖОПА з вашим json`
+            return;
+        };
+        const data = await res.json();
+        if (!data.exists) {
+            errorDiv.textContent = 'ЖОПЖОПА з вашим json ( ігор )';
+            return;
+        };
         socket.emit('join-room', {userNickname, roomCode});
         currentRoom = roomCode;
         currentUserNickname = userNickname;
         roomCodeInput.value = '';
         nameInputEl.value = '';
-    }
-    
+        } catch (err) {
+        console.error(err);
+        }
+    } 
 };
 
 const startGame = () => {

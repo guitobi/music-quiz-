@@ -8,10 +8,13 @@
     <script defer src="game-play.js"></script>
 </head>
 <body>
-    <h1>Game In Progress...</h1>
-    <div id="playersList"></div>
-    <div class="questionField"></div>
-    <div class="startBtn"></div>
+    <div class="gameContainer">
+        <div id="playersList"></div>
+        <div class="questionField"></div>
+        <div class="startBtn"></div>
+        <audio id="audioPlayer" controls hidden></audio> 
+    </div>
+    
     <script src="/socket.io/socket.io.js"></script>
 </body>
 </html>

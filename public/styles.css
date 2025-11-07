@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Zalando+Sans+SemiExpanded:ital,wght@0,200..900;1,200..900&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    background-color:#0A192F;
+    text-align: center;
+    flex-flow: column nowrap;
+    gap: 1rem;
+    font-family: 'Zalando Sans SemiExpanded', 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+.lobby {
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    width: 30%;
+    height: 60%;
+    margin: auto;
+    background-color: #112240;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    border-radius: 0.25rem;
+}
+
+.nameInput, .createRoom, .roomCode, .joinRoom, .startGame, #messageInput, .btn {
+    width: 200px;
+    padding: 0.2rem;
+    height: 35px;
+}
+
+.nameContainer, .joinContainer, .messageContainer {
+    display: flex;
+    flex-flow: row nowrap;
+    gap: 0.75rem;
+}
+
+.nameInput, .roomCode, #messageInput {
+    height: 35px;
+    border-radius: 10px;
+    background-color: #75ffdfbe;
+    border: 1px solid lightblue;
+    color: #0A192F;
+    text-align: center;
+    transition: all 0.3s ease-in-out;
+}
+
+input {
+    font-family: 'Zalando Sans SemiExpanded', 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+button {
+    border-radius: 10px;
+    border: 1px solid lightblue;
+    background-color: #0A192F;
+    color: #CCD6F6;
+    height: 35px;
+    width: 200px;
+    transition: all 0.3s ease-in-out;
+    font-family: 'Zalando Sans SemiExpanded', 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+input:focus, input:hover, #messageInput:hover, #messageinput:focus {
+    color: #75ffdfbe;
+    background-color: #0A192F;
+    border-color: #75ffdfbe;
+}
+
+button:hover, button:focus {
+    background-color: #CCD6F6;
+    color: #0A192F;
+    cursor: pointer;
+    border-color: #0A192F;
+    transform: scale(1.05);
+}
+
+.roomInfo, #playerList {
+    color: #CCD6F6;
+}
+
+.gameContainer {
+    display: grid;
+    grid-template-columns: 1fr 2fr; /* ліва вужча, права ширша */
+    gap: 1.5rem;
+    height: 100vh;
+    width: 100vw;
+    padding: 2rem;
+    background-color: #0A192F;
+}
+
+#playersList {
+    background-color: #112240;
+    color: #CCD6F6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.75rem;
+}
+
+.playerItem {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background-color: #0A192F;
+    border-radius: 0.4rem;
+    transition: background-color 0.3s;
+}
+.playerItem:hover {
+    background-color: #1E385C;
+}
+
+.questionField {
+    background-color: #112240;
+    color: #CCD6F6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    gap: 1.5rem;
+}

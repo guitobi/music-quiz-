@@ -3,6 +3,7 @@ const socket = io();
 const playersList = document.querySelector('#playersList');
 const startBtnDiv = document.querySelector('.startBtn');
 const questionField = document.querySelector('.questionField');
+const audioPlayer = document.querySelector('#audioPlayer');
 const createBtn = document.createElement('button');
 const answerResultContainer = document.createElement('div');
 
@@ -14,8 +15,8 @@ const isHost = params.get('isHost');
 let currentQuestion = null;
 let hasAnswered = false;
 
-socket.on('players-update', namesArr => {
-    playersList.textContent = namesArr.join(', \n');
+socket.on('players-update', players => {
+    playersList.innerText = players.map(p => `${p.name}: ${p.score}🏆`).join('\n');
 });
 
 socket.on('new-round', question => {
@@ -23,7 +24,7 @@ socket.on('new-round', question => {
     hasAnswered = false;
     const questionH = document.createElement('h3');
     questionField.innerHTML = '';
-    questionH.textContent = question.trackName;
+    questionH.textContent = "Guess the Artist!";
     questionField.appendChild(questionH);
     question.options.forEach(option => {
         const markup = `
@@ -39,12 +40,21 @@ socket.on('submit-result', result => {
     answerResultContainer.textContent = result;
     questionField.appendChild(answerResultContainer);
     answerResultContainer.appendChild(res);
+    audioPlayer.pause();
 });
 
 socket.on('round-over', () => {
     if (isHost === 'true') {
         createBtn.hidden = false;
     }
+    audioPlayer.pause();
+    const questionH = questionField.querySelector('h3');
+    questionH.textContent = currentQuestion.trackName;
+});
+
+socket.on('play-track', ({ url }) => {
+    audioPlayer.src = url;
+    audioPlayer.play();
 });
 
 socket.emit('rejoin-room', {roomCode, nickname});
@@ -66,6 +76,7 @@ const startRound = () => {
 questionField.addEventListener('click', (e) => {
     if (hasAnswered === true) return;
     if (e.target.tagName === 'BUTTON') {
+        audioPlayer.pause();
         const answer = e.target.dataset.artist;
         hasAnswered = true;
         // console.log(answer)
