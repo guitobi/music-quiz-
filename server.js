@@ -57,7 +57,7 @@ io.on('connection', socket => {
         console.log('До:', rooms[roomCode].players);
 
         socket.join(roomCode);
-        rooms[roomCode].players[socket.id] = { name: userNickname, hasAnswered: false, score: 0 };
+        rooms[roomCode].players[socket.id] = { name: userNickname, score: 0 };
         socket.room = roomCode;
 
         console.log('Після:', rooms[roomCode].players);
@@ -77,6 +77,8 @@ io.on('connection', socket => {
 
     socket.on('start-game', ({roomCode}) => {
         rooms[roomCode].gameIsStarted = true;
+        rooms[roomCode].currentRound = 0;
+        rooms[roomCode].totalRounds = 5;
         io.to(roomCode).emit('game-started');
     })
     
@@ -86,26 +88,37 @@ io.on('connection', socket => {
             for (const [id, player] of Object.entries(rooms[roomCode].players)) {
                 if (player.name === nickname) delete rooms[roomCode].players[id];
             }
-        }
-        rooms[roomCode].players[socket.id] = { name: nickname, hasAnswered: false, score: 0 };
+        } 
+        rooms[roomCode].players[socket.id] = { name: nickname, score: 0 };
         socket.room = roomCode;
         broadcastPlayersUpdate(roomCode);
     });
 
     socket.on('start-round', async (roomCode) => {
         try {
-            Object.values(rooms[roomCode].players).forEach(player => player.hasAnswered = false);
-            const question = await generateQuestion();
-            rooms[roomCode].currentCorrectAnswer = question.artistName;
-            io.to(roomCode).emit('new-round', question);
+            rooms[roomCode].currentRound++;
+            if (rooms[roomCode].currentRound > rooms[roomCode].totalRounds) {
+               const sortedPlayers =  Object.values(rooms[roomCode].players).sort((a, b) => b.score - a.score);
+               io.to(roomCode).emit('game-over', { finalScores: sortedPlayers });
+            } else {
+                const question = await generateQuestion();
+                rooms[roomCode].currentCorrectAnswer = question.artistName;
+                io.to(roomCode).emit('new-round', {
+                    question: question,
+                    currentRound: rooms[roomCode].currentRound,
+                    totalRounds: rooms[roomCode].totalRounds
+                });
 
-            const query = `${question.trackName} ${question.artistName}`;
-            const previewResult = await spotifyPreviewFinder(query, 1);
+                rooms[roomCode].roundResults = {};
 
-            if (previewResult.success && previewResult.results.length > 0) {
-                const previewUrl = previewResult.results[0].previewUrls[0];
-                if (previewUrl) {
-                    io.to(roomCode).emit('play-track', { url: previewUrl });
+                const query = `${question.trackName} ${question.artistName}`;
+                const previewResult = await spotifyPreviewFinder(query, 1);
+
+                if (previewResult.success && previewResult.results.length > 0) {
+                    const previewUrl = previewResult.results[0].previewUrls[0];
+                    if (previewUrl) {
+                        io.to(roomCode).emit('play-track', { url: previewUrl });
+                    }
                 }
             }
         } catch (err) {
@@ -115,21 +128,26 @@ io.on('connection', socket => {
 
     socket.on('submit-button', ({ roomCode, nickname, answer }) => {
         if (!roomCode || !nickname || !answer) return;
-        if (rooms[roomCode].players[socket.id].hasAnswered) return;
+        if (rooms[roomCode].roundResults[socket.id]) return;
+
         const currentPlayer = rooms[roomCode].players[socket.id];
-        const players = Object.values(rooms[roomCode].players);
-        currentPlayer.hasAnswered = true;
-        const resultRight = `${nickname} answered right`;
-        const resultWrong = `${nickname} answered wrong`;
-        if (answer === rooms[roomCode].currentCorrectAnswer) {
-            rooms[roomCode].players[socket.id].score += 10;
-            io.to(roomCode).emit('submit-result', resultRight);
-        } else {
-            io.to(roomCode).emit('submit-result', resultWrong);
-        }
-        const allAnswered = players.every(player => player.hasAnswered);
-        if (allAnswered) {
-            io.to(roomCode).emit('round-over');
+        const players = rooms[roomCode].players;
+        
+        const isCorrect = answer === rooms[roomCode].currentCorrectAnswer;
+        if (isCorrect) rooms[roomCode].players[socket.id].score += 10;
+        rooms[roomCode].roundResults[socket.id] = { hasAnswered: true, isCorrectAnswer: isCorrect };
+           
+        // const allAnswered = Object.values(rooms[roomCode].roundResults[socket.id]).every(player => player.hasAnswered);
+        if (Object.keys(rooms[roomCode].roundResults).length === Object.keys(rooms[roomCode].players).length) {
+            const results = Object.keys(players).map(player => {
+                return {
+                    name: players[player].name,
+                    score: players[player].score,
+                    isCorrectAnswer: rooms[roomCode].roundResults[player].isCorrectAnswer
+                }
+            });
+            broadcastPlayersUpdate(roomCode);
+            io.to(roomCode).emit('round-over', { results: results });
         }
     });
 

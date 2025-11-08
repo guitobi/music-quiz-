@@ -9,7 +9,7 @@ socket.on('response', data => console.log(data));
 
 const messageSendBtnEl = document.querySelector('.btn');
 const inputEl = document.querySelector('#messageInput');
-const chatDivEl = document.querySelector('.message');
+const chatDivEl = document.querySelector('.messageContainer');
 const createRoomBtn = document.querySelector('.createRoom');
 const joinRoomBtn = document.querySelector('.joinRoom');
 const startGameBtn = document.querySelector('.startGame');
@@ -115,7 +115,7 @@ const startGame = () => {
 
 messageSendBtnEl.addEventListener('click', () => {
         if (!currentRoom) {
-        alert('Спочатку створи або приєднайся до кімнати!');
+        alert('У тебе немає друзів');
         return;
     }
     

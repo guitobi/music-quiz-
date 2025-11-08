@@ -136,3 +136,48 @@ button:hover, button:focus {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
     gap: 1.5rem;
 }
+
+.messageContainer {
+    color: #CCD6F6;
+}
+
+input#volumeSlider {
+    -webkit-appearance: none; 
+    appearance: none;
+    max-width: 10%;
+    padding: 1rem;
+    margin: 1rem 2rem 0rem auto;
+    background-color: #112240; /* прибираємо заливку, щоб не з’їдала трек */
+    border-radius: 5px;
+}
+
+/* доріжка */
+input#volumeSlider::-webkit-slider-runnable-track {
+    background: #1E385C;
+    height: 6px;
+    border-radius: 5px;
+}
+
+/* сам повзунок (кнопка) */
+input#volumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #00ffd0;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00ffd0;
+    cursor: pointer;
+    position: relative;
+    margin-top: -6px; /* піднімаємо над треком, щоб не “тонула” */
+    z-index: 2;
+}
+
+input#volumeSlider::-webkit-slider-thumb:hover {
+    background: #00ffd0;
+    box-shadow: 0 0 12px #00ffd0;
+    transform: scale(1.2);
+    transition: all 0.15s ease;
+}
+
