@@ -44,6 +44,10 @@ body {
     gap: 0.75rem;
 }
 
+.errorDiv {
+     color: #CCD6F6;
+}
+
 .nameInput, .roomCode, #messageInput {
     height: 35px;
     border-radius: 10px;

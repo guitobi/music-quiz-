@@ -48,6 +48,10 @@ socket.on('error-nickname-taken', () => {
     errorDiv.textContent = `This nickname is alredy taken.(єбать ти лох, точно шось з хохлами хотів, та?)`;
 });
 
+socket.on('error-game-in-progress', () => {
+    errorDiv.textContent = `Game is already in progress`;
+});
+
 const createRoom = async () => {
     // isHost = true;
     // startGameBtn.hidden = true;

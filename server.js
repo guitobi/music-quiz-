@@ -55,6 +55,11 @@ io.on('connection', socket => {
     socket.on('join-room', ({userNickname, roomCode}) => {
         socket.join(roomCode);
 
+        if (!rooms[roomCode] || rooms[roomCode].gameIsStarted || rooms[roomCode].isLobbyLocked) {
+            socket.emit('error-game-in-progress')
+            return;
+        }
+
         if (!rooms[roomCode].disconnectedPlayers)
             rooms[roomCode].disconnectedPlayers = [];
 
@@ -165,6 +170,7 @@ io.on('connection', socket => {
             rooms[roomCode].disconnectedPlayers.push(player);
         });
         rooms[roomCode].players = {}
+        rooms[roomCode].isLobbyLocked = true;
         io.to(roomCode).emit('game-started', { roomCode: roomCode} );
         // startNewGame(roomCode, socket);
     });
@@ -214,6 +220,8 @@ const startNewRound = async (roomCode) => {
     try {
             rooms[roomCode].currentRound++;
             if (rooms[roomCode].currentRound > rooms[roomCode].totalRounds) {
+                rooms[roomCode].gameIsStarted = false;
+                rooms[roomCode].isLobbyLocked = false;
                 const sortedPlayers = Object.values(rooms[roomCode].players).sort((a, b) => b.score - a.score);
                 io.to(roomCode).emit('game-over', { finalScores: sortedPlayers });
             } else {
@@ -282,7 +290,7 @@ const startNewGame = async (roomCode, socket) => {
     broadcastPlayersUpdate(roomCode);
 
     if (rooms[roomCode].currentTimer) clearTimeout(rooms[roomCode].currentTimer);
-    
+
     await startNewRound(roomCode);
 }
 
