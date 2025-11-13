@@ -53,77 +53,124 @@ io.on('connection', socket => {
     });
 
     socket.on('join-room', ({userNickname, roomCode}) => {
-        console.log(`Гравець ${userNickname} приєднується до ${roomCode}`);
-        console.log('До:', rooms[roomCode].players);
-
         socket.join(roomCode);
-        rooms[roomCode].players[socket.id] = { name: userNickname, score: 0 };
+
+        if (!rooms[roomCode].disconnectedPlayers)
+            rooms[roomCode].disconnectedPlayers = [];
+
+        if (Object.values(rooms[roomCode].players).some(p => p.name === userNickname)) {
+            socket.emit('error-nickname-taken');
+            return;
+        }
+
+        const index = rooms[roomCode].disconnectedPlayers.findIndex(p => p.name === userNickname);
+
+        let score;
+        let isHost;
+
+        if (index !== -1) { 
+            score = rooms[roomCode].disconnectedPlayers[index].score;
+            isHost = rooms[roomCode].disconnectedPlayers[index].isHost;
+            rooms[roomCode].disconnectedPlayers.splice(index, 1);
+        } else { 
+            score = 0;
+            isHost = Object.keys(rooms[roomCode].players).length === 0;
+        }
+
+        rooms[roomCode].players[socket.id] = { name: userNickname, score, isHost };
         socket.room = roomCode;
 
-        console.log('Після:', rooms[roomCode].players);
+        if (rooms[roomCode].gameIsStarted) {
+            socket.emit('game-started', { userNickname: userNickname, roomCode: roomCode })
+        } else {
+            socket.emit('room-joined', {
+            userNickname: userNickname,
+            roomCode,
+            Host: isHost
+        });
+        }
+        
+        broadcastPlayersUpdate(roomCode);
+    });
 
-        socket.emit('room-joined', ({userNickname, roomCode}));
+    socket.on('rejoin-room', ({ userNickname, roomCode }) => {
+        socket.join(roomCode);
+        if (!rooms[roomCode]) return;
+        if (!rooms[roomCode].disconnectedPlayers)
+            rooms[roomCode].disconnectedPlayers = [];
+
+        // if (Object.values(rooms[roomCode].players).some(p => p.name === userNickname)) {
+        //     socket.emit('error-nickname-taken');
+        //     return;
+        // }
+
+        const index = rooms[roomCode].disconnectedPlayers.findIndex(p => p.name === userNickname);
+
+        let score;
+        let isHost;
+
+        if (index !== -1) { 
+            score = rooms[roomCode].disconnectedPlayers[index].score;
+            isHost = rooms[roomCode].disconnectedPlayers[index].isHost;
+            rooms[roomCode].disconnectedPlayers.splice(index, 1);
+        } else { 
+            score = 0;
+            isHost = Object.keys(rooms[roomCode].players).length === 0;
+        }
+
+        rooms[roomCode].players[socket.id] = { name: userNickname, score, isHost };
+        socket.room = roomCode;
+
+        if (rooms[roomCode].gameIsStarted) io.to(socket.id).emit('sync-game-state', {currentRound: rooms[roomCode].currentRound, totalRounds: rooms[roomCode].totalRounds, curQuestion: rooms[roomCode].currentQuestion});
+
+        socket.emit('room-joined', {
+            userNickname: userNickname,
+            roomCode,
+            Host: isHost
+        });
+
         broadcastPlayersUpdate(roomCode);
     });
 
     socket.on('disconnect', () => {
         if (!rooms[socket.room] || !rooms[socket.room].players[socket.id]) return;
+        if (!rooms[socket.room]) return;
+        if (!rooms[socket.room].disconnectedPlayers) {
+            rooms[socket.room].disconnectedPlayers = [];
+        }
+        rooms[socket.room].disconnectedPlayers.push({ ...rooms[socket.room].players[socket.id] });
 
+        const wasHost = rooms[socket.room].players[socket.id].isHost;
+        
         delete rooms[socket.room].players[socket.id];
+
+        const newHostSocketId = Object.keys(rooms[socket.room].players)[0];
+        if (wasHost && newHostSocketId) {
+            rooms[socket.room].players[newHostSocketId].isHost = true;
+            io.to(newHostSocketId).emit('new-host');
+        }
+
         broadcastPlayersUpdate(socket.room);
 
         if (!rooms[socket.room].gameIsStarted && Object.keys(rooms[socket.room].players).length === 0) delete rooms[socket.room];
     });
 
     socket.on('start-game', ({roomCode}) => {
-        rooms[roomCode].gameIsStarted = true;
-        rooms[roomCode].currentRound = 0;
-        rooms[roomCode].totalRounds = 5;
-        io.to(roomCode).emit('game-started');
-    })
-    
-    socket.on('rejoin-room', ({roomCode, nickname}) => {
-        socket.join(roomCode);
-        if (rooms[roomCode].players) {
-            for (const [id, player] of Object.entries(rooms[roomCode].players)) {
-                if (player.name === nickname) delete rooms[roomCode].players[id];
-            }
-        } 
-        rooms[roomCode].players[socket.id] = { name: nickname, score: 0 };
-        socket.room = roomCode;
-        broadcastPlayersUpdate(roomCode);
+        const player = rooms[roomCode].players[socket.id];
+        if (!rooms[roomCode].disconnectedPlayers) {
+            rooms[roomCode].disconnectedPlayers = [];
+        }
+        Object.values(rooms[roomCode].players).forEach((player) => {
+            rooms[roomCode].disconnectedPlayers.push(player);
+        });
+        rooms[roomCode].players = {}
+        if (!player.isHost) return;
+        io.to(roomCode).emit('game-started', { roomCode: roomCode} );
+        // startNewGame(roomCode, socket);
     });
 
     socket.on('start-round', async (roomCode) => {
-        try {
-            rooms[roomCode].currentRound++;
-            if (rooms[roomCode].currentRound > rooms[roomCode].totalRounds) {
-               const sortedPlayers =  Object.values(rooms[roomCode].players).sort((a, b) => b.score - a.score);
-               io.to(roomCode).emit('game-over', { finalScores: sortedPlayers });
-            } else {
-                const question = await generateQuestion();
-                rooms[roomCode].currentCorrectAnswer = question.artistName;
-                io.to(roomCode).emit('new-round', {
-                    question: question,
-                    currentRound: rooms[roomCode].currentRound,
-                    totalRounds: rooms[roomCode].totalRounds
-                });
-
-                rooms[roomCode].roundResults = {};
-
-                const query = `${question.trackName} ${question.artistName}`;
-                const previewResult = await spotifyPreviewFinder(query, 1);
-
-                if (previewResult.success && previewResult.results.length > 0) {
-                    const previewUrl = previewResult.results[0].previewUrls[0];
-                    if (previewUrl) {
-                        io.to(roomCode).emit('play-track', { url: previewUrl });
-                    }
-                }
-            }
-        } catch (err) {
-            console.error(err);
-        }
+        await startNewGame(roomCode, socket);
     });
 
     socket.on('submit-button', ({ roomCode, nickname, answer }) => {
@@ -139,6 +186,8 @@ io.on('connection', socket => {
            
         // const allAnswered = Object.values(rooms[roomCode].roundResults[socket.id]).every(player => player.hasAnswered);
         if (Object.keys(rooms[roomCode].roundResults).length === Object.keys(rooms[roomCode].players).length) {
+            if (rooms[roomCode].roundOverSent) return;
+            rooms[roomCode].roundOverSent = true;
             const results = Object.keys(players).map(player => {
                 return {
                     name: players[player].name,
@@ -151,7 +200,82 @@ io.on('connection', socket => {
         }
     });
 
+    socket.on('play-again', ({ roomCode }) => { 
+        startNewGame(roomCode, socket);
+    });
+
 });
+
+const startNewRound = async (roomCode) => {
+    try {
+            rooms[roomCode].currentRound++;
+            if (rooms[roomCode].currentRound > rooms[roomCode].totalRounds) {
+                const sortedPlayers = Object.values(rooms[roomCode].players).sort((a, b) => b.score - a.score);
+                io.to(roomCode).emit('game-over', { finalScores: sortedPlayers });
+            } else {
+                const question = await generateQuestion();
+                
+                // ПЕРЕВІРКА якщо питання не згенерувалось
+                if (!question) {
+                    io.to(roomCode).emit('error-message', 'Не вдалось завантажити питання. Спробуйте інший плейлист.');
+                    console.error(`Не вдалось згенерувати питання для кімнати ${roomCode}`);
+                    return;
+                }
+                
+                rooms[roomCode].currentCorrectAnswer = question.artistName;
+                rooms[roomCode].currentQuestion = question;
+                io.to(roomCode).emit('new-round', {
+                    question: question,
+                    currentRound: rooms[roomCode].currentRound,
+                    totalRounds: rooms[roomCode].totalRounds
+                });
+
+                rooms[roomCode].roundOverSent = false;
+                rooms[roomCode].roundResults = {};
+
+                setTimeout(() => { 
+                    if (rooms[roomCode].roundOverSent) return;
+                    rooms[roomCode].roundOverSent = true;
+                    const players = rooms[roomCode].players;
+                    const results = rooms[roomCode].roundResults;
+                    const infoToSend = Object.keys(players).map(player => {
+                        return {
+                            name: players[player].name,
+                            score: players[player].score,
+                            isCorrectAnswer: results[player] ? results[player].isCorrectAnswer : false
+                        }
+                    });
+                    io.to(roomCode).emit('round-over', { results: infoToSend });
+                }, 15000); 
+
+                const query = `${question.trackName} ${question.artistName}`;
+                const previewResult = await spotifyPreviewFinder(query, 1);
+
+                if (previewResult.success && previewResult.results.length > 0) {
+                    const previewUrl = previewResult.results[0].previewUrls[0];
+                    if (previewUrl) {
+                        io.to(roomCode).emit('play-track', { url: previewUrl });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Критична помилка в start-round:', err);
+            io.to(roomCode).emit('error-message', 'Сталась помилка. Перезапустіть гру.');
+        }
+};
+
+const startNewGame = async (roomCode, socket) => {
+    const player = rooms[roomCode].players[socket.id];
+
+    if (!player || !player.isHost) return;
+
+    rooms[roomCode].gameIsStarted = true;
+    rooms[roomCode].currentRound = 0;
+    rooms[roomCode].totalRounds = 5;
+    Object.values(rooms[roomCode].players).forEach(player => player.score = 0);
+    broadcastPlayersUpdate(roomCode);
+    await startNewRound(roomCode);
+}
 
 const getNames = (players) => Object.values(players);
 
@@ -162,10 +286,30 @@ const broadcastPlayersUpdate = (roomCode) => {
 const generateQuestion = async () => {
     try {
         const playlist = await SpotifyApi.getPlaylist(process.env.SPOTIFY_PLAYLIST_ID);
-        const tracks = playlist.body.tracks.items.map(item => ({
-            name: item.track.name,
-            artist: item.track.artists[0].name,
-         }));
+        
+        if (!playlist.body || !playlist.body.tracks || !playlist.body.tracks.items) {
+            throw new Error('Плейлист порожній або має неправильну структуру');
+        }
+
+        const tracks = playlist.body.tracks.items
+            .filter(item => {
+                if (!item || !item.track) return false;
+                if (!item.track.name) return false;
+                if (!item.track.artists || item.track.artists.length === 0) return false;
+                if (!item.track.artists[0].name) return false;
+                
+                return true;
+            })
+            .map(item => ({
+                name: item.track.name,
+                artist: item.track.artists[0].name,
+            }));
+
+        console.log(`Знайдено ${tracks.length} валідних треків у плейлисті`);
+
+        if (tracks.length === 0) {
+            throw new Error('У плейлисті немає валідних треків');
+        }
 
         const tracksByArtist = new Map();
         for (const track of tracks) {
@@ -175,8 +319,10 @@ const generateQuestion = async () => {
         }
         const uniqueTracks = Array.from(tracksByArtist.values());
 
+        console.log(`Знайдено ${uniqueTracks.length} унікальних виконавців`);
+
         if (uniqueTracks.length < 4) {
-            throw new Error('У вашому плейлисті недостатньо унікальних виконавців (потрібно мінімум 4)');
+            throw new Error(`У плейлисті недостатньо унікальних виконавців (потрібно мінімум 4, знайдено ${uniqueTracks.length})`);
         }
 
         const fourTracks = shuffle(uniqueTracks).slice(0, 4);
@@ -189,9 +335,9 @@ const generateQuestion = async () => {
             options: options,
         };
     } catch (err) {
-        console.error(err);
+        console.error('Помилка генерації питання:', err.message);
+        return null;
     }
-    
 };
 
 // допоміжна хуйня для перемішування

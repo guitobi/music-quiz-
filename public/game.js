@@ -26,29 +26,31 @@ socket.on('message', ({userNickname, text}) => {
     chatDivEl.appendChild(p);
 });
 
-socket.on('room-joined', ({userNickname, roomCode}) => {
+socket.on('room-joined', ({userNickname, roomCode, Host}) => {
+    // if (isHost) isHost = true;
+    isHost = Host;
+    if (isHost) startGameBtn.hidden = false;
     currentRoom = roomCode;
     roomInfo.textContent = `${userNickname.trim()} приєднався до: ${roomCode}`;
     nameInputEl.value = '';
     roomCodeInput.value = '';
 });
 
-socket.on('room-created', ({playerName, roomCode}) => {
-    currentRoom = roomCode;
-    roomInfo.textContent = `${playerName}, твоя кімната: ${roomCode}`;
-    nameInputEl.value = '';
-});
-
 socket.on('players-update', players => {
     playersListDiv.innerText = players.map(p => `${p.name}`).join('\n');
 });
 
-socket.on('game-started', () => {
-    window.location.href = `game.html?roomCode=${currentRoom}&nickname=${currentUserNickname}&isHost=${isHost}`;
+socket.on('game-started', ({ roomCode }) => {
+    window.location.href = `game.html?roomCode=${roomCode}&nickname=${currentUserNickname}`;
+});
+
+socket.on('error-nickname-taken', () => {
+    errorDiv.textContent = `This nickname is alredy taken.(єбать ти лох, точно шось з хохлами хотів, та?)`;
 });
 
 const createRoom = async () => {
-    isHost = true;
+    // isHost = true;
+    // startGameBtn.hidden = true;
     errorDiv.innerHTML =  '';
     const userNickname = nameInputEl.value.trim();
     if(userNickname === '') {
@@ -69,7 +71,7 @@ const createRoom = async () => {
             const data = await res.json();
             const roomCodeParsed = data.roomCode;
             socket.emit('join-room', {userNickname, roomCode: roomCodeParsed});
-            startGameBtn.removeAttribute('hidden');
+            // startGameBtn.removeAttribute('hidden');
         } catch (err) {
             console.error(err);
         }

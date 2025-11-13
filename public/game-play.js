@@ -5,36 +5,25 @@ const startBtnDiv = document.querySelector('.startBtn');
 const questionField = document.querySelector('.questionField');
 const audioPlayer = document.querySelector('#audioPlayer');
 const volumeSlider = document.querySelector('#volumeSlider');
-const createBtn = document.createElement('button');
+const createBtn = document.querySelector("#startRoundBtn");
 const answerResultContainer = document.createElement('div');
 
 const params = new URLSearchParams(window.location.search);
 const roomCode = params.get('roomCode');
 const nickname = params.get('nickname');
-const isHost = params.get('isHost');
 
 let currentQuestion = null;
 let hasAnswered = false;
+let isHost = false;
+let roundTimer = null;
 
 socket.on('players-update', players => {
     playersList.innerText = players.map(p => `${p.name}: ${p.score}🏆`).join('\n');
 });
 
 socket.on('new-round', ({ question, currentRound, totalRounds }) => {
-        currentQuestion = question;
-        hasAnswered = false;
-        const questionH = document.createElement('h3');
-        const roundP = `<p>Round ${currentRound} / ${totalRounds}</p>`
-        questionField.innerHTML = '';
-        questionH.textContent = "Guess the Artist!";
-        questionField.appendChild(questionH);
-        questionField.insertAdjacentHTML('afterbegin', roundP);
-        question.options.forEach(option => {
-            const markup = `
-                <button data-artist="${option}">${option}</button>
-                `
-                questionField.insertAdjacentHTML('beforeend', markup);
-        });
+    renderQuestionRoom(question, currentRound, totalRounds);
+    createTimer();
 });
 
 socket.on('submit-result', result => {
@@ -46,7 +35,9 @@ socket.on('submit-result', result => {
 });
 
 socket.on('round-over', ({ results }) => {
-    if (isHost === 'true') {
+    if (roundTimer) clearInterval(roundTimer);
+    audioPlayer.pause();
+    if (isHost === true) {
         createBtn.hidden = false;
     }
 
@@ -76,28 +67,99 @@ socket.on('game-over', ({ finalScores }) => {
     questionField.innerText = `Game Over!\n`;
     questionField.innerText += `${finalScores[0].name} is a winner!`;
     playersList.innerText = finalScores.map(p => `${p.name}: ${p.score} 🏆`).join('\n');
-    
+    if (isHost) {
+        createBtn.textContent = `Play Again?`;
+        createBtn.hidden = false;
+    }
 });
 
-socket.emit('rejoin-room', {roomCode, nickname});
+socket.on('new-host', () => {
+    isHost = true;
+    createBtn.hidden = false;
+});
 
-const createStartBtn = () => {
-    if (isHost === 'true') {
-        createBtn.id = "startRoundBtn";
-        createBtn.textContent = 'Start Round'
-        startBtnDiv.appendChild(createBtn);
-        createBtn.addEventListener('click', startRound);
+socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion}) => {
+    renderQuestionRoom(curQuestion, currentRound, totalRounds);
+    createTimer();
+});
+
+socket.on('room-joined', ({userNickname, roomCode, Host }) => {
+    isHost = Host;
+    if (isHost) {
+        createBtn.textContent = 'Start Round';
+        createBtn.hidden = false;
     }
-};
+});
+
+socket.on('error-message', (message) => {
+    alert(message);
+});
+
+socket.emit('rejoin-room', { userNickname: nickname, roomCode: roomCode });
+
+// const createStartBtn = () => {
+//     if (isHost === true) {
+//         createBtn.textContent = 'Start Round'
+//         startBtnDiv.appendChild(createBtn);
+//         createBtn.addEventListener('click', startRound);
+//     }
+// };
 
 const startRound = () => {
     socket.emit('start-round', roomCode);
     createBtn.hidden = true;
 };
 
+const renderQuestionRoom = (question, currentRound, totalRounds) => {
+    currentQuestion = question;
+        hasAnswered = false;
+        const questionH = document.createElement('h3');
+        const roundP = `<p>Round ${currentRound} / ${totalRounds}</p>`
+        questionField.innerHTML = '';
+        questionH.textContent = "Guess the Artist!";
+        questionField.appendChild(questionH);
+        questionField.insertAdjacentHTML('afterbegin', roundP);
+        question.options.forEach(option => {
+            const markup = `
+                <button data-artist="${option}">${option}</button>
+                `
+                questionField.insertAdjacentHTML('beforeend', markup);
+        });
+};
+
+const createTimer = () => {
+    const timerEl = document.createElement('div');
+    timerEl.id = 'timer';
+    timerEl.textContent = 15;
+    questionField.insertAdjacentElement('afterbegin', timerEl);
+
+    if (roundTimer) clearInterval(roundTimer);
+
+    roundTimer = setInterval(() => {
+    let current = parseInt(timerEl.textContent, 10);
+    if (current <= 0) {
+      clearInterval(roundTimer);
+    } else {
+      timerEl.textContent = current - 1;
+    }
+  }, 1000);
+};
+
+createBtn.addEventListener('click', () => {
+    if (createBtn.textContent === 'Start Round') {
+        startRound();
+    } else if (createBtn.textContent === 'Play Again?') {
+        socket.emit('play-again', { roomCode: roomCode });
+        createBtn.hidden = true;
+    }
+});
+
 questionField.addEventListener('click', (e) => {
     if (hasAnswered === true) return;
     if (e.target.tagName === 'BUTTON') {
+
+        if (roundTimer) clearInterval(roundTimer);
+
         audioPlayer.pause();
         const answer = e.target.dataset.artist;
         hasAnswered = true;
@@ -108,7 +170,6 @@ questionField.addEventListener('click', (e) => {
 
 volumeSlider.addEventListener('input', () => {
     audioPlayer.volume = volumeSlider.value;
-})
+});
 
-createStartBtn();
 
