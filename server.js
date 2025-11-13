@@ -157,6 +157,7 @@ io.on('connection', socket => {
 
     socket.on('start-game', ({roomCode}) => {
         const player = rooms[roomCode].players[socket.id];
+        if (!player.isHost) return;
         if (!rooms[roomCode].disconnectedPlayers) {
             rooms[roomCode].disconnectedPlayers = [];
         }
@@ -164,7 +165,6 @@ io.on('connection', socket => {
             rooms[roomCode].disconnectedPlayers.push(player);
         });
         rooms[roomCode].players = {}
-        if (!player.isHost) return;
         io.to(roomCode).emit('game-started', { roomCode: roomCode} );
         // startNewGame(roomCode, socket);
     });
@@ -200,9 +200,13 @@ io.on('connection', socket => {
         }
     });
 
-    socket.on('play-again', ({ roomCode }) => { 
-        startNewGame(roomCode, socket);
+    socket.on('play-again', async ({ roomCode }) => { 
+        await startNewGame(roomCode, socket);
     });
+
+    socket.on('next-round', async (roomCode) => {
+        await startNewRound(roomCode);
+    })
 
 });
 
@@ -233,7 +237,9 @@ const startNewRound = async (roomCode) => {
                 rooms[roomCode].roundOverSent = false;
                 rooms[roomCode].roundResults = {};
 
-                setTimeout(() => { 
+                if (rooms[roomCode].currentTimer) clearTimeout(rooms[roomCode].currentTimer);
+
+                rooms[roomCode].currentTimer = setTimeout(() => { 
                     if (rooms[roomCode].roundOverSent) return;
                     rooms[roomCode].roundOverSent = true;
                     const players = rooms[roomCode].players;
@@ -246,7 +252,7 @@ const startNewRound = async (roomCode) => {
                         }
                     });
                     io.to(roomCode).emit('round-over', { results: infoToSend });
-                }, 15000); 
+                }, 15000);; 
 
                 const query = `${question.trackName} ${question.artistName}`;
                 const previewResult = await spotifyPreviewFinder(query, 1);
@@ -274,6 +280,9 @@ const startNewGame = async (roomCode, socket) => {
     rooms[roomCode].totalRounds = 5;
     Object.values(rooms[roomCode].players).forEach(player => player.score = 0);
     broadcastPlayersUpdate(roomCode);
+
+    if (rooms[roomCode].currentTimer) clearTimeout(rooms[roomCode].currentTimer);
+    
     await startNewRound(roomCode);
 }
 

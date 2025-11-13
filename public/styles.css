@@ -151,14 +151,12 @@ input#volumeSlider {
     border-radius: 5px;
 }
 
-/* доріжка */
 input#volumeSlider::-webkit-slider-runnable-track {
     background: #1E385C;
     height: 6px;
     border-radius: 5px;
 }
 
-/* сам повзунок (кнопка) */
 input#volumeSlider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -170,7 +168,7 @@ input#volumeSlider::-webkit-slider-thumb {
     box-shadow: 0 0 8px #00ffd0;
     cursor: pointer;
     position: relative;
-    margin-top: -6px; /* піднімаємо над треком, щоб не “тонула” */
+    margin-top: -6px; 
     z-index: 2;
 }
 

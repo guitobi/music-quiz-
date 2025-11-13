@@ -39,6 +39,7 @@ socket.on('round-over', ({ results }) => {
     audioPlayer.pause();
     if (isHost === true) {
         createBtn.hidden = false;
+        createBtn.textContent = 'Next Round';
     }
 
     const resultsHtml = results.map(p => {
@@ -151,7 +152,10 @@ createBtn.addEventListener('click', () => {
     } else if (createBtn.textContent === 'Play Again?') {
         socket.emit('play-again', { roomCode: roomCode });
         createBtn.hidden = true;
-    }
+    } else if (createBtn.textContent === 'Next Round') {
+        socket.emit('next-round', roomCode);
+        createBtn.hidden = true;
+    }   
 });
 
 questionField.addEventListener('click', (e) => {
@@ -170,6 +174,10 @@ questionField.addEventListener('click', (e) => {
 
 volumeSlider.addEventListener('input', () => {
     audioPlayer.volume = volumeSlider.value;
+});
+
+audioPlayer.addEventListener('ended', () => {
+    clearInterval(roundTimer);
 });
 
 
