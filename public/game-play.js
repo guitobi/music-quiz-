@@ -101,6 +101,11 @@ socket.on('game-started', ({ roomCode }) => {
     window.location.href = `game.html?roomCode=${roomCode}&nickname=${nickname}`;
 });
 
+socket.on('loading-question', (roomCode) => {
+    questionField.textContent = `Loading questions...`;
+    // socket.emit('new-round', roomCode);
+});
+
 socket.emit('rejoin-room', { userNickname: nickname, roomCode: roomCode });
 
 // const createStartBtn = () => {

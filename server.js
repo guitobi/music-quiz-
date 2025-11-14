@@ -227,7 +227,7 @@ io.on('connection', socket => {
 
     socket.on('next-round', async (roomCode) => {
         await startNewRound(roomCode);
-    })
+    });
 
 });
 
@@ -240,30 +240,16 @@ const startNewRound = async (roomCode) => {
                 const sortedPlayers = Object.values(rooms[roomCode].players).sort((a, b) => b.score - a.score);
                 io.to(roomCode).emit('game-over', { finalScores: sortedPlayers });
             } else {
-                const question = await generateQuestion();
-                
-                // ПЕРЕВІРКА якщо питання не згенерувалось
-                if (!question) {
-                    io.to(roomCode).emit('error-message', 'Не вдалось завантажити питання. Спробуйте інший плейлист.');
-                    console.error(`Не вдалось згенерувати питання для кімнати ${roomCode}`);
-                    return;
-                }
-                const query = `${question.trackName} ${question.artistName}`;
-                const previewResult = await spotifyPreviewFinder(query, 1);
-                rooms[roomCode].currentCorrectAnswer = question.artistName;
-                rooms[roomCode].currentQuestion = question;
+                const nextQuestion = rooms[roomCode].questionDeck.pop();
+                rooms[roomCode].currentCorrectAnswer = nextQuestion.artistName;
+                rooms[roomCode].currentQuestion = nextQuestion;
 
-                if (previewResult.success && previewResult.results.length > 0) {
-                    const previewUrl = previewResult.results[0].previewUrls[0];
-                    if (previewUrl) {
-                        io.to(roomCode).emit('new-round', {
-                            question: question,
-                            currentRound: rooms[roomCode].currentRound,
-                            totalRounds: rooms[roomCode].totalRounds,
-                            url: previewUrl
-                        });
-                    }
-                }
+                    io.to(roomCode).emit('new-round', {
+                        question: rooms[roomCode].currentQuestion,
+                        currentRound: rooms[roomCode].currentRound,
+                        totalRounds: rooms[roomCode].totalRounds,
+                        url: nextQuestion.url
+                    });
                 
                 rooms[roomCode].roundOverSent = false;
                 rooms[roomCode].roundResults = {};
@@ -292,6 +278,7 @@ const startNewRound = async (roomCode) => {
 };
 
 const startNewGame = async (roomCode, socket) => {
+    let questionPromises = []
     const player = rooms[roomCode].players[socket.id];
 
     if (!player || !player.isHost) return;
@@ -304,8 +291,33 @@ const startNewGame = async (roomCode, socket) => {
 
     if (rooms[roomCode].currentTimer) clearTimeout(rooms[roomCode].currentTimer);
 
+    rooms[roomCode].questionDeck = [];
+    
+    io.to(roomCode).emit('loading-question', roomCode);
+
+    for (let i = 0; i < rooms[roomCode].totalRounds; i++) {
+        let newQuestion = buildSingleQuestion();
+        // if (!newQuestion) {
+        //     socket.emit('error-message', `Сталась помилка з генерацією питань, перезапустіть гру!`)
+        //     return;
+        // } else {
+            questionPromises.push(newQuestion);
+            
+            // rooms[roomCode].questionDeck.push(newQuestion);
+        // }
+    }
+    const allPromises = await Promise.all(questionPromises);
+    const validPromises = allPromises.filter(item => item !== null);
+
+    rooms[roomCode].questionDeck = validPromises;
+
+    if (rooms[roomCode].questionDeck.length === 0) {
+        socket.emit('error-message', `Сталась помилка з генерацією питань, перезапустіть гру!`)
+        return;
+    }
+    
     await startNewRound(roomCode);
-}
+};
 
 const getNames = (players) => Object.values(players);
 
@@ -366,6 +378,31 @@ const generateQuestion = async () => {
         };
     } catch (err) {
         console.error('Помилка генерації питання:', err.message);
+        return null;
+    }
+};
+
+const buildSingleQuestion = async () => {
+    try {
+        const question = await generateQuestion();
+
+        if (!question) {
+            console.error(`Помилка евейту питтання (Nothing found)`);
+            return null;
+        }
+
+        const query = `${question.trackName} ${question.artistName}`;
+        const previewResult = await spotifyPreviewFinder(query, 1);
+
+        if (question === null || previewResult === null || previewResult.results.length === 0 || query === null) {
+            console.error(`Помилка побудови питтання (Nothing found)`);
+            return null;
+        }
+        const previewUrl = previewResult.results[0].previewUrls[0];
+
+        return { trackName: question.trackName, artistName: question.artistName, options: question.options, url: previewUrl };
+    } catch (err) {
+        console.error(err);
         return null;
     }
 };
