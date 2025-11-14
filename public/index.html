@@ -9,28 +9,40 @@
 </head>
 <body>
 
-    <div class="lobby">
+    <div class="lobby-container card">
 
-        <div class="nameContainer">
-            <input class="nameInput" placeholder="Your name: ">
-            <button class="createRoom">Create room</button>
+        <h1>GUESS THE ARTIST</h1>
+
+        <div class="form-group">
+            <label for="nameInput">Your Nickname:</label>
+            <input class="nameInput" id="nameInput" type="text" placeholder="DOUBLE Z">
         </div>
 
-        <div class="joinContainer">
-            <input class="roomCode" placeholder="Enter room code">
-            <button class="joinRoom" type="button">Join room</button>
+        <div class="lobby-section">
+            <h2>Create New Game</h2>
+            <button class="createRoom btn-primary">Create</button>
         </div>
+
+        <div class="lobby-section">
+            <h2>Join Existing Game</h2>
+            <div class="form-group">
+                <label for="roomCode">Room Code:</label>
+                <input class="roomCode" id="roomCode" type="text" placeholder="XXXXXX">
+            </div>
+            <button class="joinRoom">Join</button>
+        </div>
+        
+        <div class="error-div"></div>
+        <div class="roomInfo"></div>
+        <div id="playerList"></div>
+        
+        <button class="startGame btn-primary" hidden>Start Game</button>
 
         <div class="messageContainer">
             <input type="text" id="messageInput" placeholder="Enter your message">
             <button class="btn">Send</button>
         </div>
 
-        <button class="startGame" hidden>Start Game</button>
-        
-        <div class="error-div"></div>
-        <div id="playerList"></div>
-        <div class="roomInfo"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

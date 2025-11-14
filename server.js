@@ -104,31 +104,69 @@ io.on('connection', socket => {
         if (!rooms[roomCode].disconnectedPlayers)
             rooms[roomCode].disconnectedPlayers = [];
 
-        // if (Object.values(rooms[roomCode].players).some(p => p.name === userNickname)) {
-        //     socket.emit('error-nickname-taken');
-        //     return;
-        // }
-
-        const index = rooms[roomCode].disconnectedPlayers.findIndex(p => p.name === userNickname);
+        const disIndex = rooms[roomCode].disconnectedPlayers.findIndex(p => p.name === userNickname);
 
         let score;
         let isHost;
 
-        if (index !== -1) { 
-            score = rooms[roomCode].disconnectedPlayers[index].score;
-            isHost = rooms[roomCode].disconnectedPlayers[index].isHost;
-            rooms[roomCode].disconnectedPlayers.splice(index, 1);
-        } else { 
-            score = 0;
-            isHost = Object.keys(rooms[roomCode].players).length === 0;
+        if (disIndex !== -1) { 
+            score = rooms[roomCode].disconnectedPlayers[disIndex].score;
+            isHost = rooms[roomCode].disconnectedPlayers[disIndex].isHost;
+            rooms[roomCode].disconnectedPlayers.splice(disIndex, 1);
+        } else {
+            const playerIndex = Object.entries(rooms[roomCode].players).filter(([key, value]) => value.name === userNickname);
+        
+            if (playerIndex.length !== 0) {
+                const foundEntry = playerIndex[0];
+                score = foundEntry[1].score;
+                isHost = foundEntry[1].isHost;
+                delete rooms[roomCode].players[foundEntry[0]];
+            } else {
+                score = 0;
+                isHost = Object.keys(rooms[roomCode].players).length === 0;
+            }
         }
 
         rooms[roomCode].players[socket.id] = { name: userNickname, score, isHost };
         socket.room = roomCode;
 
-        if (isHost && rooms[roomCode].hostPromotionTimer)  clearTimeout(rooms[roomCode].hostPromotionTimer);
+        if (isHost && rooms[roomCode].hostPromotionTimer) clearTimeout(rooms[roomCode].hostPromotionTimer);
 
-        if (rooms[roomCode].gameIsStarted) io.to(socket.id).emit('sync-game-state', {currentRound: rooms[roomCode].currentRound, totalRounds: rooms[roomCode].totalRounds, curQuestion: rooms[roomCode].currentQuestion});
+        // Якщо гра йде і раунд НЕ закінчився - синхронізуємо стан гри
+        if (rooms[roomCode].gameIsStarted && !rooms[roomCode].roundOverSent) {
+            // Обчислюємо скільки часу залишилось
+            const timeLeft = rooms[roomCode].roundStartTime 
+                ? Math.max(0, 15 - Math.floor((Date.now() - rooms[roomCode].roundStartTime) / 1000))
+                : 15;
+            
+            io.to(socket.id).emit('sync-game-state', {
+                currentRound: rooms[roomCode].currentRound, 
+                totalRounds: rooms[roomCode].totalRounds, 
+                curQuestion: rooms[roomCode].currentQuestion,
+                timeLeft: timeLeft,
+                audioUrl: rooms[roomCode].currentQuestion?.url
+            });
+        } 
+        // Якщо гра йде і раунд ЗАКІНЧИВСЯ - відправляємо результати раунду
+        else if (rooms[roomCode].gameIsStarted && rooms[roomCode].roundOverSent) {
+            const players = rooms[roomCode].players;
+            const results = Object.keys(players).map(sockId => {
+                const player = players[sockId];
+                const playerResult = rooms[roomCode].roundResults[player.name] || { 
+                    hasAnswered: false, 
+                    isCorrectAnswer: false 
+                };
+                return {
+                    name: player.name,
+                    score: player.score,
+                    isCorrectAnswer: playerResult.isCorrectAnswer
+                };
+            });
+            io.to(socket.id).emit('round-over', { 
+                results: results,
+                correctAnswer: rooms[roomCode].currentQuestion
+            });
+        }
 
         socket.emit('room-joined', {
             userNickname: userNickname,
@@ -151,13 +189,19 @@ io.on('connection', socket => {
         
         delete rooms[socket.room].players[socket.id];
 
-        rooms[socket.room].hostPromotionTimer = setTimeout(() => {
+        if (wasHost && Object.keys(rooms[socket.room].players).length > 0) {
+            rooms[socket.room].hostPromotionTimer = setTimeout(() => {
+
+            if (!rooms[socket.room]) return;
+            if (Object.keys(rooms[socket.room].players).length === 0) return;
+
             const newHostSocketId = Object.keys(rooms[socket.room].players)[0];
             if (wasHost && newHostSocketId) {
                 rooms[socket.room].players[newHostSocketId].isHost = true;
                 io.to(newHostSocketId).emit('new-host');
             }
         }, 5000);
+        }
         
         broadcastPlayersUpdate(socket.room);
 
@@ -180,33 +224,60 @@ io.on('connection', socket => {
     });
 
     socket.on('start-round', async (roomCode) => {
-        await startNewGame(roomCode, socket);
+        const player = rooms[roomCode].players[socket.id];
+        
+        if (!player || !player.isHost) return;
+        
+        // Перевіряємо чи гра вже почалась
+        if (rooms[roomCode].gameIsStarted && rooms[roomCode].questionDeck && rooms[roomCode].questionDeck.length > 0) {
+            // Якщо гра вже йде - просто стартуємо наступний раунд  
+            await startNewRound(roomCode);
+        } else {
+            // Якщо гра не почалась - стартуємо нову гру
+            await startNewGame(roomCode, socket);
+        }
     });
 
     socket.on('submit-button', ({ roomCode, nickname, answer }) => {
-        if (!roomCode || !nickname || !answer) return;
-        if (rooms[roomCode].roundResults[socket.id]) return;
-
-        const currentPlayer = rooms[roomCode].players[socket.id];
-        const players = rooms[roomCode].players;
+        if (!roomCode || !nickname || !answer || !rooms[roomCode]) return;
+        if (!rooms[roomCode].roundResults) rooms[roomCode].roundResults = {};
+        if (rooms[roomCode].roundResults[nickname]) return;
         
+        const players = rooms[roomCode].players;
         const isCorrect = answer === rooms[roomCode].currentCorrectAnswer;
-        if (isCorrect) rooms[roomCode].players[socket.id].score += 10;
-        rooms[roomCode].roundResults[socket.id] = { hasAnswered: true, isCorrectAnswer: isCorrect };
-           
-        // const allAnswered = Object.values(rooms[roomCode].roundResults[socket.id]).every(player => player.hasAnswered);
-        if (Object.keys(rooms[roomCode].roundResults).length === Object.keys(rooms[roomCode].players).length) {
+
+        const playerEntry = Object.values(players).find(p => p.name === nickname);
+        if (playerEntry && isCorrect) {
+            playerEntry.score += 10;
+        }
+        
+        rooms[roomCode].roundResults[nickname] = { 
+            hasAnswered: true, 
+            isCorrectAnswer: isCorrect 
+        };
+        
+        if (Object.keys(rooms[roomCode].roundResults).length === Object.keys(players).length) {
             if (rooms[roomCode].roundOverSent) return;
             rooms[roomCode].roundOverSent = true;
-            const results = Object.keys(players).map(player => {
+            
+            const results = Object.keys(players).map(sockId => {
+                const player = players[sockId];
+                const playerResult = rooms[roomCode].roundResults[player.name] || { 
+                    hasAnswered: false, 
+                    isCorrectAnswer: false 
+                };
                 return {
-                    name: players[player].name,
-                    score: players[player].score,
-                    isCorrectAnswer: rooms[roomCode].roundResults[player].isCorrectAnswer
-                }
+                    name: player.name,
+                    score: player.score,
+                    isCorrectAnswer: playerResult.isCorrectAnswer
+                };
             });
+            
             broadcastPlayersUpdate(roomCode);
-            io.to(roomCode).emit('round-over', { results: results });
+            io.to(roomCode).emit('round-over', { 
+                results: results,
+                correctAnswer: rooms[roomCode].currentQuestion
+            });
         }
     });
 
@@ -243,6 +314,7 @@ const startNewRound = async (roomCode) => {
                 const nextQuestion = rooms[roomCode].questionDeck.pop();
                 rooms[roomCode].currentCorrectAnswer = nextQuestion.artistName;
                 rooms[roomCode].currentQuestion = nextQuestion;
+                rooms[roomCode].roundStartTime = Date.now(); // Зберігаємо час початку раунду
 
                     io.to(roomCode).emit('new-round', {
                         question: rooms[roomCode].currentQuestion,
@@ -256,24 +328,42 @@ const startNewRound = async (roomCode) => {
 
                 if (rooms[roomCode].currentTimer) clearTimeout(rooms[roomCode].currentTimer);
 
-                rooms[roomCode].currentTimer = setTimeout(() => { 
+                rooms[roomCode].currentTimer = setTimeout(() => {
+
                     if (rooms[roomCode].roundOverSent) return;
                     rooms[roomCode].roundOverSent = true;
-                    const players = rooms[roomCode].players;
-                    const results = rooms[roomCode].roundResults;
-                    const infoToSend = Object.keys(players).map(player => {
+
+                    const players = rooms[roomCode].players;              
+                    const results = rooms[roomCode].roundResults;         
+                    //  масив який буде відправлений всім клієнтам
+                    const infoToSend = Object.keys(players).map(sockId => {
+                        const player = players[sockId];
+                        const playerResult = results[player.name] || {    // за нікнеймом
+                            hasAnswered: false,
+                            isCorrectAnswer: false
+                        };
+
                         return {
-                            name: players[player].name,
-                            score: players[player].score,
-                            isCorrectAnswer: results[player] ? results[player].isCorrectAnswer : false
-                        }
+                            name: player.name,
+                            score: player.score,
+                            isCorrectAnswer: playerResult.isCorrectAnswer
+                        };
                     });
-                    io.to(roomCode).emit('round-over', { results: infoToSend });
-                }, 15000); 
+
+                    io.to(roomCode).emit('round-over', { 
+                        results: infoToSend,
+                        correctAnswer: rooms[roomCode].currentQuestion
+                    });
+                }, 15000);
             }
         } catch (err) {
             console.error('Критична помилка в start-round:', err);
             io.to(roomCode).emit('error-message', 'Сталась помилка. Перезапустіть гру.');
+            console.error('Помилка генерації питання:', err.message);
+            if (err.response) {
+                console.error('Status code:', err.response.status);
+                console.error('Response data:', err.response.data);
+            }
         }
 };
 
@@ -378,6 +468,11 @@ const generateQuestion = async () => {
         };
     } catch (err) {
         console.error('Помилка генерації питання:', err.message);
+        console.error('Помилка генерації питання:', err.message);
+        if (err.response) {
+            console.error('Status code:', err.response.status);
+            console.error('Response data:', err.response.data);
+        }
         return null;
     }
 };

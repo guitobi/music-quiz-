@@ -1,6 +1,6 @@
 const socket = io();
 
-const playersList = document.querySelector('#playersList');
+const playersListContainer = document.querySelector('#playersList .player-list-items');
 const startBtnDiv = document.querySelector('.startBtn');
 const questionField = document.querySelector('.questionField');
 const audioPlayer = document.querySelector('#audioPlayer');
@@ -18,7 +18,16 @@ let isHost = false;
 let roundTimer = null;
 
 socket.on('players-update', players => {
-    playersList.innerText = players.map(p => `${p.name}: ${p.score}🏆`).join('\n');
+    playersListContainer.innerHTML = ''; 
+    players.forEach(p => {
+        const playerEl = document.createElement('div');
+        playerEl.className = 'player-item';
+        playerEl.innerHTML = `
+            <span class="name">${p.name}</span>
+            <span class="score">${p.score} 🏆</span>
+        `;
+        playersListContainer.appendChild(playerEl);
+    });
 });
 
 socket.on('new-round', ({ question, currentRound, totalRounds, url }) => {
@@ -36,60 +45,101 @@ socket.on('submit-result', result => {
     answerResultContainer.appendChild(res);
 });
 
-socket.on('round-over', ({ results }) => {
+socket.on('round-over', ({ results, correctAnswer }) => {
     if (roundTimer) clearInterval(roundTimer);
     audioPlayer.pause();
-    if (isHost === true) {
-        createBtn.hidden = false;
-        createBtn.textContent = 'Next Round';
+
+    playersListContainer.innerHTML = '';
+    results.forEach(p => {
+        const icon = p.isCorrectAnswer ? '✅' : '❌';
+        const playerEl = document.createElement('div');
+        playerEl.className = 'player-item';
+        playerEl.innerHTML = `
+            <span class="name">${p.name}</span>
+            <span class="score">${p.score} 🏆</span>
+            <span class="result-icon">${icon}</span>
+        `;
+        playersListContainer.appendChild(playerEl);
+    });
+
+    // Використовуємо correctAnswer з сервера
+    if (correctAnswer) {
+        const questionH = questionField.querySelector('h3');
+        if (questionH) { 
+            questionH.innerHTML = `Correct was: <span class="highlight">${correctAnswer.artistName}</span> - ${correctAnswer.trackName}`;
+        }
     }
 
-    const resultsHtml = results.map(p => {
-        const icon = p.isCorrectAnswer ? '✅' : '❌'; 
-        return `<div>${p.name}: ${p.score} 🏆 ${icon}</div>`;
-    }).join(''); // 
-
-    playersList.innerHTML = resultsHtml;
-    const questionH = questionField.querySelector('h3');
-    const artistNameStr = document.createElement('span');
-
-    questionH.style.fontWeight = '400';
-    artistNameStr.style.fontWeight = '900';
-    artistNameStr.textContent = `${currentQuestion.artistName}`;
-    questionH.textContent = `Correct was: ${artistNameStr.textContent} - ${currentQuestion.trackName}`;
+    // Показуємо кнопку хосту (навіть якщо він перезавантажив сторінку)
+    if (isHost === true) {
+        createBtn.textContent = 'Next Round';
+        createBtn.hidden = false;
+        // Перевіряємо чи кнопка вже є в questionField
+        if (!questionField.contains(createBtn)) {
+            questionField.appendChild(createBtn);
+        }
+    }
 });
 
-// socket.on('play-track', ({ url }) => {
-    
-// });
-
 socket.on('game-over', ({ finalScores }) => {
-    questionField.innerText = '';
+    questionField.innerHTML = ''; 
     createBtn.hidden = true;
-    questionField.innerText = `Game Over!\n`;
-    questionField.innerText += `${finalScores[0].name} is a winner!`;
-    playersList.innerText = finalScores.map(p => `${p.name}: ${p.score} 🏆`).join('\n');
+    
+    const gameOverTitle = document.createElement('h2');
+    gameOverTitle.textContent = 'Game Over!';
+    const winnerText = document.createElement('p');
+    winnerText.textContent = `${finalScores[0].name} is a winner!`;
+    winnerText.style.fontSize = '1.2rem';
+    
+    questionField.appendChild(gameOverTitle);
+    questionField.appendChild(winnerText);
+
+    playersListContainer.innerHTML = '';
+    finalScores.forEach(p => {
+        const playerEl = document.createElement('div');
+        playerEl.className = 'player-item';
+        playerEl.innerHTML = `
+            <span class="name">${p.name}</span>
+            <span class="score">${p.score} 🏆</span>
+        `;
+        playersListContainer.appendChild(playerEl);
+    });
+
     if (isHost) {
         createBtn.textContent = `Play Again?`;
         createBtn.hidden = false;
+        questionField.appendChild(createBtn); 
     }
 });
 
 socket.on('new-host', () => {
     isHost = true;
-    createBtn.hidden = false;
 });
 
-socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion}) => {
+socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion, timeLeft, audioUrl }) => {
+    console.log
+    currentQuestion = curQuestion;
     renderQuestionRoom(curQuestion, currentRound, totalRounds);
-    createTimer();
+    
+    // Запускаємо аудіо якщо є URL
+    if (audioUrl) {
+        audioPlayer.src = audioUrl;
+        audioPlayer.play().catch(err => {
+            console.log('Autoplay blocked:', err);
+        });
+    }
+    
+    // Створюємо таймер з правильним часом
+    createTimerWithTime(timeLeft || 15);
 });
 
 socket.on('room-joined', ({userNickname, roomCode, Host }) => {
     isHost = Host;
-    if (isHost) {
+    // Показуємо кнопку тільки якщо гра не почалась
+    if (isHost && !document.querySelector('#timer') && currentQuestion === null && questionField.querySelector('h3')?.textContent !== 'Loading questions...') { 
         createBtn.textContent = 'Start Round';
         createBtn.hidden = false;
+        questionField.appendChild(createBtn); 
     }
 });
 
@@ -102,58 +152,66 @@ socket.on('game-started', ({ roomCode }) => {
 });
 
 socket.on('loading-question', (roomCode) => {
-    questionField.textContent = `Loading questions...`;
-    // socket.emit('new-round', roomCode);
+    questionField.innerHTML = `<h3>Loading questions...</h3>`;
 });
 
 socket.emit('rejoin-room', { userNickname: nickname, roomCode: roomCode });
 
-// const createStartBtn = () => {
-//     if (isHost === true) {
-//         createBtn.textContent = 'Start Round'
-//         startBtnDiv.appendChild(createBtn);
-//         createBtn.addEventListener('click', startRound);
-//     }
-// };
-
 const startRound = () => {
+    console.log(`ПЕРЕД старт раунд`);
     socket.emit('start-round', roomCode);
     createBtn.hidden = true;
 };
 
 const renderQuestionRoom = (question, currentRound, totalRounds) => {
     currentQuestion = question;
-        hasAnswered = false;
-        const questionH = document.createElement('h3');
-        const roundP = `<p>Round ${currentRound} / ${totalRounds}</p>`
-        questionField.innerHTML = '';
-        questionH.textContent = "Guess the Artist!";
-        questionField.appendChild(questionH);
-        questionField.insertAdjacentHTML('afterbegin', roundP);
-        question.options.forEach(option => {
-            const markup = `
-                <button data-artist="${option}">${option}</button>
-                `
-                questionField.insertAdjacentHTML('beforeend', markup);
-        });
+    hasAnswered = false;
+    questionField.innerHTML = ''; 
+
+    const roundP = document.createElement('p');
+    roundP.className = 'round-info';
+    roundP.textContent = `Round ${currentRound} / ${totalRounds}`;
+
+    const questionH = document.createElement('h3');
+    questionH.textContent = "Guess the Artist!";
+    
+    questionField.appendChild(roundP);
+    questionField.appendChild(questionH);
+
+    const optionsGrid = document.createElement('div');
+    optionsGrid.className = 'options-grid';
+
+    question.options.forEach(option => {
+        const button = document.createElement('button');
+        button.dataset.artist = option;
+        button.textContent = option;
+        optionsGrid.appendChild(button); 
+    });
+
+    questionField.appendChild(optionsGrid); 
 };
 
 const createTimer = () => {
+    createTimerWithTime(15);
+};
+
+const createTimerWithTime = (seconds) => {
     const timerEl = document.createElement('div');
-    timerEl.id = 'timer';
-    timerEl.textContent = 15;
-    questionField.insertAdjacentElement('afterbegin', timerEl);
+    timerEl.id = 'timer'; 
+    timerEl.textContent = seconds;
+    
+    questionField.prepend(timerEl);
 
     if (roundTimer) clearInterval(roundTimer);
 
     roundTimer = setInterval(() => {
-    let current = parseInt(timerEl.textContent, 10);
-    if (current <= 0) {
-      clearInterval(roundTimer);
-    } else {
-      timerEl.textContent = current - 1;
-    }
-  }, 1000);
+        let current = parseInt(timerEl.textContent, 10);
+        if (current <= 0) {
+            clearInterval(roundTimer);
+        } else {
+            timerEl.textContent = current - 1;
+        }
+    }, 1000);
 };
 
 createBtn.addEventListener('click', () => {
@@ -170,14 +228,21 @@ createBtn.addEventListener('click', () => {
 
 questionField.addEventListener('click', (e) => {
     if (hasAnswered === true) return;
-    if (e.target.tagName === 'BUTTON') {
+    
+    if (e.target.tagName === 'BUTTON' && e.target.closest('.options-grid')) {
 
         if (roundTimer) clearInterval(roundTimer);
-
+        
         audioPlayer.pause();
         const answer = e.target.dataset.artist;
         hasAnswered = true;
-        // console.log(answer)
+        
+        const allButtons = questionField.querySelectorAll('.options-grid button');
+        allButtons.forEach(btn => btn.disabled = true);
+        
+        e.target.style.backgroundColor = 'var(--accent-dark-hover)';
+        e.target.style.color = 'var(--text-light)';
+
         socket.emit('submit-button', {roomCode, nickname, answer});
     };
 });
@@ -189,5 +254,3 @@ volumeSlider.addEventListener('input', () => {
 audioPlayer.addEventListener('ended', () => {
     clearInterval(roundTimer);
 });
-
-
