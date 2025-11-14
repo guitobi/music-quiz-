@@ -96,6 +96,10 @@ socket.on('error-message', (message) => {
     alert(message);
 });
 
+socket.on('game-started', ({ roomCode }) => {
+    window.location.href = `game.html?roomCode=${roomCode}&nickname=${nickname}`;
+});
+
 socket.emit('rejoin-room', { userNickname: nickname, roomCode: roomCode });
 
 // const createStartBtn = () => {

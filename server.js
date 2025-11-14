@@ -126,6 +126,8 @@ io.on('connection', socket => {
         rooms[roomCode].players[socket.id] = { name: userNickname, score, isHost };
         socket.room = roomCode;
 
+        if (isHost && rooms[roomCode].hostPromotionTimer)  clearTimeout(rooms[roomCode].hostPromotionTimer);
+
         if (rooms[roomCode].gameIsStarted) io.to(socket.id).emit('sync-game-state', {currentRound: rooms[roomCode].currentRound, totalRounds: rooms[roomCode].totalRounds, curQuestion: rooms[roomCode].currentQuestion});
 
         socket.emit('room-joined', {
@@ -149,12 +151,14 @@ io.on('connection', socket => {
         
         delete rooms[socket.room].players[socket.id];
 
-        const newHostSocketId = Object.keys(rooms[socket.room].players)[0];
-        if (wasHost && newHostSocketId) {
-            rooms[socket.room].players[newHostSocketId].isHost = true;
-            io.to(newHostSocketId).emit('new-host');
-        }
-
+        rooms[socket.room].hostPromotionTimer = setTimeout(() => {
+            const newHostSocketId = Object.keys(rooms[socket.room].players)[0];
+            if (wasHost && newHostSocketId) {
+                rooms[socket.room].players[newHostSocketId].isHost = true;
+                io.to(newHostSocketId).emit('new-host');
+            }
+        }, 5000);
+        
         broadcastPlayersUpdate(socket.room);
 
         if (!rooms[socket.room].gameIsStarted && Object.keys(rooms[socket.room].players).length === 0) delete rooms[socket.room];
@@ -207,7 +211,18 @@ io.on('connection', socket => {
     });
 
     socket.on('play-again', async ({ roomCode }) => { 
-        await startNewGame(roomCode, socket);
+        const player = rooms[roomCode].players[socket.id];
+        if (!player.isHost) return;
+        if (!rooms[roomCode].disconnectedPlayers) {
+            rooms[roomCode].disconnectedPlayers = [];
+        }
+        Object.values(rooms[roomCode].players).forEach((player) => {
+            rooms[roomCode].disconnectedPlayers.push(player);
+        });
+        rooms[roomCode].players = {}
+        rooms[roomCode].isLobbyLocked = true;
+        io.to(roomCode).emit('game-started', { roomCode: roomCode} );
+        // await startNewGame(roomCode, socket);
     });
 
     socket.on('next-round', async (roomCode) => {
