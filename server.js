@@ -248,15 +248,23 @@ const startNewRound = async (roomCode) => {
                     console.error(`Не вдалось згенерувати питання для кімнати ${roomCode}`);
                     return;
                 }
-                
+                const query = `${question.trackName} ${question.artistName}`;
+                const previewResult = await spotifyPreviewFinder(query, 1);
                 rooms[roomCode].currentCorrectAnswer = question.artistName;
                 rooms[roomCode].currentQuestion = question;
-                io.to(roomCode).emit('new-round', {
-                    question: question,
-                    currentRound: rooms[roomCode].currentRound,
-                    totalRounds: rooms[roomCode].totalRounds
-                });
 
+                if (previewResult.success && previewResult.results.length > 0) {
+                    const previewUrl = previewResult.results[0].previewUrls[0];
+                    if (previewUrl) {
+                        io.to(roomCode).emit('new-round', {
+                            question: question,
+                            currentRound: rooms[roomCode].currentRound,
+                            totalRounds: rooms[roomCode].totalRounds,
+                            url: previewUrl
+                        });
+                    }
+                }
+                
                 rooms[roomCode].roundOverSent = false;
                 rooms[roomCode].roundResults = {};
 
@@ -275,17 +283,7 @@ const startNewRound = async (roomCode) => {
                         }
                     });
                     io.to(roomCode).emit('round-over', { results: infoToSend });
-                }, 15000);; 
-
-                const query = `${question.trackName} ${question.artistName}`;
-                const previewResult = await spotifyPreviewFinder(query, 1);
-
-                if (previewResult.success && previewResult.results.length > 0) {
-                    const previewUrl = previewResult.results[0].previewUrls[0];
-                    if (previewUrl) {
-                        io.to(roomCode).emit('play-track', { url: previewUrl });
-                    }
-                }
+                }, 15000); 
             }
         } catch (err) {
             console.error('Критична помилка в start-round:', err);

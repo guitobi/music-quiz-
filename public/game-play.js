@@ -21,7 +21,9 @@ socket.on('players-update', players => {
     playersList.innerText = players.map(p => `${p.name}: ${p.score}🏆`).join('\n');
 });
 
-socket.on('new-round', ({ question, currentRound, totalRounds }) => {
+socket.on('new-round', ({ question, currentRound, totalRounds, url }) => {
+    audioPlayer.src = url;
+    audioPlayer.play();
     renderQuestionRoom(question, currentRound, totalRounds);
     createTimer();
 });
@@ -57,10 +59,9 @@ socket.on('round-over', ({ results }) => {
     questionH.textContent = `Correct was: ${artistNameStr.textContent} - ${currentQuestion.trackName}`;
 });
 
-socket.on('play-track', ({ url }) => {
-    audioPlayer.src = url;
-    audioPlayer.play();
-});
+// socket.on('play-track', ({ url }) => {
+    
+// });
 
 socket.on('game-over', ({ finalScores }) => {
     questionField.innerText = '';
