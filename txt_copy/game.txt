@@ -16,9 +16,9 @@ const startGameBtn = document.querySelector('.startGame');
 const nameInputEl = document.querySelector('.nameInput');
 const errorDiv = document.querySelector('.error-div');
 const roomInfo = document.querySelector('.roomInfo');
-// const playersListDiv = document.getElementById('playerList'); // Цей селектор більше не потрібен у такому вигляді
+const playersListDiv = document.getElementById('playerList');
 const roomCodeInput = document.querySelector('.roomCode');
-const volumeSlider = document.getElementById('volumeSlider'); // Примітка: в index.html немає volumeSlider
+const volumeSlider = document.getElementById('volumeSlider');
 
 // селектори щоб забрати їх з екрану при приєднанні до кімнати
 const forms = document.querySelector('.form-group');
@@ -36,8 +36,8 @@ socket.on('message', ({userNickname, text}) => {
 });
 
 socket.on('room-joined', ({userNickname, roomCode, Host}) => {
-    // initialForms.hidden = true; 
-    // activeLobbyContent.hidden = false; 
+    initialForms.hidden = true;
+    activeLobbyContent.hidden = false;
     body.classList.add('active-lobby');
     isHost = Host;
     if (isHost) {
@@ -46,10 +46,15 @@ socket.on('room-joined', ({userNickname, roomCode, Host}) => {
         document.getElementById('host-controls').hidden = true;
     }
     currentRoom = roomCode;
-    document.getElementById('displayRoomCode').textContent = roomCode;
+    roomInfo.textContent = `${userNickname.trim()} приєднався до: ${roomCode}`;
     currentUserNickname = userNickname;
     nameInputEl.value = '';
     roomCodeInput.value = '';
+    updatePlayersList();
+});
+
+socket.on('players-update', players => {
+    playersListDiv.innerText = players.map(p => `${p.name}`).join('\n');
 });
 
 socket.on('game-started', ({ roomCode }) => {
@@ -64,12 +69,8 @@ socket.on('error-game-in-progress', () => {
     errorDiv.textContent = `Game is already in progress`;
 });
 
-// Цей обробник тепер єдиний і коректно працює для лобі
 socket.on('players-update', (players) => {
-    // Переконуємось, що оновлюємо список гравців саме у лобі
-    const playerListItems = document.querySelector('#active-lobby-content .player-list-items');
-    if (!playerListItems) return; // Якщо елемента немає, нічого не робимо
-    
+    const playerListItems = document.querySelector('.player-list-items');
     playerListItems.innerHTML = '';
     
     players.forEach((player, index) => {
@@ -79,7 +80,7 @@ socket.on('players-update', (players) => {
             <span class="name">${player.name}</span>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span class="score">${player.score || 0}</span>
-                ${player.isHost ? '<span class="host-badge">HOST</span>' : ''}
+                ${index === 0 ? '<span class="host-badge">HOST</span>' : ''}
             </div>
         `;
         playerListItems.appendChild(playerElement);
@@ -99,9 +100,8 @@ socket.on('playlist-preview', ({ tracks, playlistName }) => {
 });
 
 socket.on('volume-updated', ({ volume, playerId }) => {
-    // Це для game.html, але хай буде, не заважає
     const volumeSlider = document.getElementById('volumeSlider');
-    if (volumeSlider && socket.id !== playerId) {
+    if (socket.id !== playerId) {
         volumeSlider.value = volume;
     }
 });
@@ -113,7 +113,21 @@ socket.on('playlist-updated', ({ playlistId, playlistName, hostId }) => {
     }
 });
 
-// ПРИБРАНО НЕПОТРІБНУ ФУНКЦІЮ updatePlayersList
+const updatePlayersList = () => {
+    const playerListItems = document.querySelector('.player-list-items');
+    playerListItems.innerHTML = '';
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const players = rooms[currentRoom].players;
+    Object.entries(players).forEach(([socketId, player]) => {
+        const playerElement = document.createElement('div');
+        playerElement.className = 'player-item';
+        playerElement.innerHTML = `
+            <span class="name">${player.name}</span>
+            <span class="score">${player.score || 0}</span>
+        `;
+        playerListItems.appendChild(playerElement);
+    });
+};
 
 const createRoom = async () => {
     // isHost = true;
@@ -182,20 +196,16 @@ const startGame = () => {
     socket.emit('start-game', {roomCode: currentRoom});
 };
 
-// Цей обробник був дубльований, залишаю один
 messageSendBtnEl.addEventListener('click', () => {
         if (!currentRoom) {
-        alert('У тебе немає друзів (або ти не в кімнаті)');
+        alert('У тебе немає друзів');
         return;
     }
     
-    const message = inputEl.value.trim();
-    if (message === '') return;
-
     socket.emit('message', {
         userNickname: currentUserNickname,
         roomCode: currentRoom,
-        text: message
+        text: inputEl.value
     });
     inputEl.value = '';
 });
@@ -204,14 +214,27 @@ createRoomBtn.addEventListener('click', createRoom);
 joinRoomBtn.addEventListener('click', joinRoom);
 startGameBtn.addEventListener('click', startGame);
 
-if (volumeSlider) { // Додаємо перевірку, бо в лобі слайдера немає
-    volumeSlider.addEventListener('input', () => {
-        socket.emit('volume-change', {
-            roomCode: currentRoom,
-            volume: volumeSlider.value
-        });
+volumeSlider.addEventListener('input', () => {
+    socket.emit('volume-change', {
+        roomCode: currentRoom,
+        volume: volumeSlider.value
     });
-}
+});
+
+messageSendBtnEl.addEventListener('click', () => {
+    if (!currentRoom || !currentUserNickname) {
+        alert('Please join a room first');
+        return;
+    }
+    const message = inputEl.value.trim();
+    if (message === '') return;
+    socket.emit('message', {
+        userNickname: currentUserNickname,
+        roomCode: currentRoom,
+        text: message
+    });
+    inputEl.value = '';
+});
 
 inputEl.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {

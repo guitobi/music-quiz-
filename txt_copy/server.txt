@@ -311,13 +311,18 @@ io.on('connection', socket => {
     socket.on('change-playlist', ({ roomCode, playlistId, playlistName }) => {
         const player = rooms[roomCode].players[socket.id];
         if (!player || !player.isHost) return;
+        
         rooms[roomCode].playlistID = playlistId;
         rooms[roomCode].playlistName = playlistName;
+        
         io.to(roomCode).emit('playlist-updated', {
             playlistId,
             playlistName,
             hostId: socket.id
         });
+        
+        // Можна додати завантаження треків для попереднього перегляду
+        loadPlaylistPreview(roomCode, playlistId);
     });
 
     socket.on('volume-change', ({ roomCode, volume }) => {

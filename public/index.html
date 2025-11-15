@@ -8,21 +8,16 @@
     <script defer src="game.js"></script>
 </head>
 <body>
-
-    <div class="lobby-container card">
-
+    <div class="lobby-container card" id="initial-forms"> 
         <h1>GUESS THE ARTIST</h1>
-
         <div class="form-group">
             <label for="nameInput">Your Nickname:</label>
             <input class="nameInput" id="nameInput" type="text" placeholder="DOUBLE Z">
         </div>
-
         <div class="lobby-section">
             <h2>Create New Game</h2>
             <button class="createRoom btn-primary">Create</button>
         </div>
-
         <div class="lobby-section">
             <h2>Join Existing Game</h2>
             <div class="form-group">
@@ -31,18 +26,57 @@
             </div>
             <button class="joinRoom">Join</button>
         </div>
-        
         <div class="error-div"></div>
         <div class="roomInfo"></div>
-        <div id="playerList"></div>
-        
-        <button class="startGame btn-primary" hidden>Start Game</button>
-
-        <div class="messageContainer">
-            <input type="text" id="messageInput" placeholder="Enter your message">
-            <button class="btn">Send</button>
+    </div>
+    
+    <div id="active-lobby-content">
+        <div class="active-lobby-grid">
+            
+            <div class="lobby-column">
+                <div id="playersList" class="card">
+                    <h3>Players</h3>
+                    <div class="player-list-items"></div>
+                </div>
+            </div>
+            
+            <div class="lobby-column">
+                <div id="playlist-selection-section" class="card">
+                    <h3>Playlist Info</h3>
+                    <div class="playlist-info">
+                        <p><strong>Room Code:</strong> <span id="displayRoomCode"></span></p>
+                        <p>Current Playlist: <span id="currentPlaylistName">Rock of all time</span></p>
+                    </div>
+                    <div id="host-controls" hidden>
+                        <h4>Change Playlist (Host Only)</h4>
+                        <div class="form-group">
+                            <label for="playlistIdInput">Spotify Playlist ID:</label>
+                            <input id="playlistIdInput" type="text" placeholder="37i9dQZF1DXcBWIGoYBM5M">
+                        </div>
+                        <button id="applyPlaylistBtn" class="btn-primary">Apply</button>
+                        <div class="preset-buttons">
+                            <button data-id="37i9dQZF1DXcBWIGoYBM5M" data-name="Rock Anthems">Rock</button>
+                            <button data-id="37i9dQZF1DX0s5kDXi1oC5" data-name="90s Hits">90s Hits</button>
+                            <button data-id="37i9dQZF1DX4dyzvuaRJ0n" data-name="Pop Hits">Pop</button>
+                            <button data-id="37i9dQZF1DX0kbJZpiYdZl" data-name="Hip Hop">Hip Hop</button>
+                        </div>
+                        <button class="startGame btn-primary">Start Game</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="lobby-column">
+                <div class="messageContainer card">
+                    <h3>Chat</h3>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <div class="chat-input">
+                        <input type="text" id="messageInput" placeholder="Enter your message">
+                        <button class="send-btn btn">Send</button>
+                    </div>
+                </div>
+            </div>
+            
         </div>
-
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

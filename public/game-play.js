@@ -31,6 +31,7 @@ socket.on('players-update', players => {
 });
 
 socket.on('new-round', ({ question, currentRound, totalRounds, url }) => {
+    audioPlayer.volume = volumeSlider.value;
     audioPlayer.src = url;
     audioPlayer.play();
     renderQuestionRoom(question, currentRound, totalRounds);
