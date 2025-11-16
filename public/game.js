@@ -18,7 +18,7 @@ const errorDiv = document.querySelector('.error-div');
 const roomInfo = document.querySelector('.roomInfo');
 // const playersListDiv = document.getElementById('playerList'); // Цей селектор більше не потрібен у такому вигляді
 const roomCodeInput = document.querySelector('.roomCode');
-const volumeSlider = document.getElementById('volumeSlider'); // Примітка: в index.html немає volumeSlider
+const volumeSlider = document.getElementById('volumeSlider'); 
 
 // селектори щоб забрати їх з екрану при приєднанні до кімнати
 const forms = document.querySelector('.form-group');
@@ -64,11 +64,10 @@ socket.on('error-game-in-progress', () => {
     errorDiv.textContent = `Game is already in progress`;
 });
 
-// Цей обробник тепер єдиний і коректно працює для лобі
 socket.on('players-update', (players) => {
     // Переконуємось, що оновлюємо список гравців саме у лобі
     const playerListItems = document.querySelector('#active-lobby-content .player-list-items');
-    if (!playerListItems) return; // Якщо елемента немає, нічого не робимо
+    if (!playerListItems) return; 
     
     playerListItems.innerHTML = '';
     
@@ -98,22 +97,12 @@ socket.on('playlist-preview', ({ tracks, playlistName }) => {
     });
 });
 
-socket.on('volume-updated', ({ volume, playerId }) => {
-    // Це для game.html, але хай буде, не заважає
-    const volumeSlider = document.getElementById('volumeSlider');
-    if (volumeSlider && socket.id !== playerId) {
-        volumeSlider.value = volume;
-    }
-});
-
 socket.on('playlist-updated', ({ playlistId, playlistName, hostId }) => {
     document.getElementById('currentPlaylistName').textContent = playlistName;
     if (socket.id !== hostId) {
         document.getElementById('playlistIdInput').value = playlistId;
     }
 });
-
-// ПРИБРАНО НЕПОТРІБНУ ФУНКЦІЮ updatePlayersList
 
 const createRoom = async () => {
     // isHost = true;

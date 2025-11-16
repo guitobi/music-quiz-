@@ -288,6 +288,9 @@ body.active-lobby {
     max-height: 300px;
     overflow-y: auto;
 }
+.playlist-preview::-webkit-scrollbar {
+  display: none;
+}
 
 .playlist-track {
     padding: 0.5rem;
@@ -508,8 +511,7 @@ input[type="range"]#volumeSlider::-webkit-slider-thumb {
     .lobby-column:nth-child(3) { /* Чат переноситься вниз */
         grid-column: 1 / span 2;
     }
-
-    /* Адаптивність для гри */
+    
     .gameContainer {
         grid-template-columns: 1fr; 
         height: auto;

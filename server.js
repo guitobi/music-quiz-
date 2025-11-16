@@ -100,7 +100,7 @@ io.on('connection', socket => {
 
     socket.on('rejoin-room', ({ userNickname, roomCode }) => {
         socket.join(roomCode);
-        if (!rooms[roomCode]) return;
+
         if (!rooms[roomCode].disconnectedPlayers)
             rooms[roomCode].disconnectedPlayers = [];
 
@@ -179,7 +179,9 @@ io.on('connection', socket => {
     });
 
     socket.on('disconnect', () => {
+
         if (!rooms[socket.room] || !rooms[socket.room].players[socket.id]) return;
+
         if (!rooms[socket.room]) return;
         if (!rooms[socket.room].disconnectedPlayers) {
             rooms[socket.room].disconnectedPlayers = [];
@@ -217,6 +219,9 @@ io.on('connection', socket => {
     });
 
     socket.on('start-game', ({roomCode}) => {
+
+        if (!rooms[roomCode] || !rooms[roomCode].players[socket.id]) return;
+
         const player = rooms[roomCode].players[socket.id];
         if (!player.isHost) return;
         if (!rooms[roomCode].disconnectedPlayers) {
@@ -232,6 +237,9 @@ io.on('connection', socket => {
     });
 
     socket.on('start-round', async (roomCode) => {
+
+        if (!rooms[roomCode] || !rooms[roomCode].players[socket.id]) return;      
+
         const player = rooms[roomCode].players[socket.id];
         
         if (!player || !player.isHost) return;
@@ -248,6 +256,7 @@ io.on('connection', socket => {
 
     socket.on('submit-button', ({ roomCode, nickname, answer }) => {
         if (!roomCode || !nickname || !answer || !rooms[roomCode]) return;
+    
         if (!rooms[roomCode].roundResults) rooms[roomCode].roundResults = {};
         if (rooms[roomCode].roundResults[nickname]) return;
         
@@ -290,8 +299,12 @@ io.on('connection', socket => {
     });
 
     socket.on('play-again', async ({ roomCode }) => { 
+
+        if (!rooms[roomCode] || !rooms[roomCode].players[socket.id]) return;
+
         const player = rooms[roomCode].players[socket.id];
         if (!player.isHost) return;
+        
         if (!rooms[roomCode].disconnectedPlayers) {
             rooms[roomCode].disconnectedPlayers = [];
         }
@@ -309,21 +322,19 @@ io.on('connection', socket => {
     });
 
     socket.on('change-playlist', ({ roomCode, playlistId, playlistName }) => {
+
+        if (!rooms[roomCode] || !rooms[roomCode].players[socket.id]) return;
+
         const player = rooms[roomCode].players[socket.id];
         if (!player || !player.isHost) return;
+        
         rooms[roomCode].playlistID = playlistId;
         rooms[roomCode].playlistName = playlistName;
+        loadPlaylistPreview(roomCode, playlistId);
         io.to(roomCode).emit('playlist-updated', {
             playlistId,
             playlistName,
             hostId: socket.id
-        });
-    });
-
-    socket.on('volume-change', ({ roomCode, volume }) => {
-        io.to(roomCode).emit('volume-updated', {
-            volume: parseFloat(volume),
-            playerId: socket.id
         });
     });
 
@@ -431,7 +442,7 @@ const startNewGame = async (roomCode, socket) => {
     io.to(roomCode).emit('loading-question', roomCode);
 
     for (let i = 0; i < rooms[roomCode].totalRounds; i++) {
-        let newQuestion = buildSingleQuestion();
+        let newQuestion = buildSingleQuestion(roomCode);
         // if (!newQuestion) {
         //     socket.emit('error-message', `Сталась помилка з генерацією питань, перезапустіть гру!`)
         //     return;
@@ -460,9 +471,9 @@ const broadcastPlayersUpdate = (roomCode) => {
     io.to(roomCode).emit('players-update', getNames(rooms[roomCode].players));
 };
 
-const generateQuestion = async () => {
+const generateQuestion = async (roomCode) => {
     try {
-        const playlist = await SpotifyApi.getPlaylist(process.env.SPOTIFY_PLAYLIST_ID);
+        const playlist = await SpotifyApi.getPlaylist(rooms[roomCode].playlistID);
         
         if (!playlist.body || !playlist.body.tracks || !playlist.body.tracks.items) {
             throw new Error('Плейлист порожній або має неправильну структуру');
@@ -522,9 +533,9 @@ const generateQuestion = async () => {
     }
 };
 
-const buildSingleQuestion = async () => {
+const buildSingleQuestion = async (roomCode) => {
     try {
-        const question = await generateQuestion();
+        const question = await generateQuestion(roomCode);
 
         if (!question) {
             console.error(`Помилка евейту питтання (Nothing found)`);

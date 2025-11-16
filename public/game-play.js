@@ -136,10 +136,11 @@ socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion, timeLeft
 
 socket.on('room-joined', ({userNickname, roomCode, Host }) => {
     isHost = Host;
+    if (isHost === true) socket.emit('start-round', roomCode);
     // Показуємо кнопку тільки якщо гра не почалась
     if (isHost && !document.querySelector('#timer') && currentQuestion === null && questionField.querySelector('h3')?.textContent !== 'Loading questions...') { 
         createBtn.textContent = 'Start Round';
-        createBtn.hidden = false;
+        // createBtn.hidden = false;
         questionField.appendChild(createBtn); 
     }
 });
