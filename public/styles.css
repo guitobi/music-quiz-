@@ -492,6 +492,11 @@ input[type="range"]#volumeSlider::-webkit-slider-thumb {
     font-weight: 700;
 }
 
+#returnToLobbyBtn{
+    width: 250px;
+    font-weight: 700;
+}
+
 .startBtn {
     display: none;
 }
@@ -511,7 +516,7 @@ input[type="range"]#volumeSlider::-webkit-slider-thumb {
     .lobby-column:nth-child(3) { /* Чат переноситься вниз */
         grid-column: 1 / span 2;
     }
-    
+
     .gameContainer {
         grid-template-columns: 1fr; 
         height: auto;

@@ -265,7 +265,14 @@ io.on('connection', socket => {
 
         const playerEntry = Object.values(players).find(p => p.name === nickname);
         if (playerEntry && isCorrect) {
-            playerEntry.score += 10;
+            if (rooms[roomCode].answeredPlayers.length === 0) {
+                playerEntry.score += 10;
+            } else if (rooms[roomCode].answeredPlayers.length === 1) {
+                playerEntry.score += 8;
+            } else {
+                playerEntry.score += 5;
+            }
+            rooms[roomCode].answeredPlayers.push(nickname);
         }
         
         rooms[roomCode].roundResults[nickname] = { 
@@ -338,8 +345,29 @@ io.on('connection', socket => {
         });
     });
 
+    // обробник для кнопки return to lobby
+    socket.on('return-to-lobby', ({ roomCode }) => {
+        if (!rooms[roomCode]) return;
+
+        const player = rooms[roomCode].players[socket.id];
+
+        if (!player.isHost) return;
+
+        // скидання стану кімнати
+        rooms[roomCode].gameIsStarted = false;
+        rooms[roomCode].isLobbyLocked = false;
+        rooms[roomCode].currentRound = 0;
+        rooms[roomCode].questionDeck = [];
+        rooms[roomCode].roundResults = {};
+
+        Object.values(rooms[roomCode].players).forEach(player => player.score = 0);
+
+        io.to(roomCode).emit('lobby-redirect', { roomCode });
+    });
+
 });
 
+// функція для перших 10 пісень у лобі
 const loadPlaylistPreview = async (roomCode, playlistId) =>  {
     try {
         const playlist = await SpotifyApi.getPlaylist(playlistId);
@@ -361,12 +389,17 @@ const loadPlaylistPreview = async (roomCode, playlistId) =>  {
 const startNewRound = async (roomCode) => {
     try {
             rooms[roomCode].currentRound++;
+           
             if (rooms[roomCode].currentRound > rooms[roomCode].totalRounds) {
                 rooms[roomCode].gameIsStarted = false;
                 rooms[roomCode].isLobbyLocked = false;
+                rooms[roomCode].answeredPlayers = [];
+
                 const sortedPlayers = Object.values(rooms[roomCode].players).sort((a, b) => b.score - a.score);
+
                 io.to(roomCode).emit('game-over', { finalScores: sortedPlayers });
             } else {
+                rooms[roomCode].answeredPlayers = [];
                 const nextQuestion = rooms[roomCode].questionDeck.pop();
                 rooms[roomCode].currentCorrectAnswer = nextQuestion.artistName;
                 rooms[roomCode].currentQuestion = nextQuestion;

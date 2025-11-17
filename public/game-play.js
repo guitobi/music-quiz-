@@ -6,6 +6,7 @@ const questionField = document.querySelector('.questionField');
 const audioPlayer = document.querySelector('#audioPlayer');
 const volumeSlider = document.querySelector('#volumeSlider');
 const createBtn = document.querySelector("#startRoundBtn");
+const returnToLobbyBtn = document.querySelector('#returnToLobbyBtn');
 const answerResultContainer = document.createElement('div');
 
 const params = new URLSearchParams(window.location.search);
@@ -85,6 +86,7 @@ socket.on('round-over', ({ results, correctAnswer }) => {
 socket.on('game-over', ({ finalScores }) => {
     questionField.innerHTML = ''; 
     createBtn.hidden = true;
+    returnToLobbyBtn.hidden = true;
     
     const gameOverTitle = document.createElement('h2');
     gameOverTitle.textContent = 'Game Over!';
@@ -108,8 +110,10 @@ socket.on('game-over', ({ finalScores }) => {
 
     if (isHost) {
         createBtn.textContent = `Play Again?`;
+        returnToLobbyBtn.hidden = false;
         createBtn.hidden = false;
         questionField.appendChild(createBtn); 
+        questionField.appendChild(returnToLobbyBtn);
     }
 });
 
@@ -140,7 +144,7 @@ socket.on('room-joined', ({userNickname, roomCode, Host }) => {
     // Показуємо кнопку тільки якщо гра не почалась
     if (isHost && !document.querySelector('#timer') && currentQuestion === null && questionField.querySelector('h3')?.textContent !== 'Loading questions...') { 
         createBtn.textContent = 'Start Round';
-        // createBtn.hidden = false;
+        createBtn.hidden = false;
         questionField.appendChild(createBtn); 
     }
 });
@@ -157,12 +161,17 @@ socket.on('loading-question', (roomCode) => {
     questionField.innerHTML = `<h3>Loading questions...</h3>`;
 });
 
+socket.on('lobby-redirect', ({ roomCode }) => {
+    window.location.href = `index.html?roomCode=${roomCode}&nickname=${nickname}`;
+});
+
 socket.emit('rejoin-room', { userNickname: nickname, roomCode: roomCode });
 
 const startRound = () => {
     console.log(`ПЕРЕД старт раунд`);
     socket.emit('start-round', roomCode);
     createBtn.hidden = true;
+    returnToLobbyBtn.hidden = true;
 };
 
 const renderQuestionRoom = (question, currentRound, totalRounds) => {
@@ -222,9 +231,11 @@ createBtn.addEventListener('click', () => {
     } else if (createBtn.textContent === 'Play Again?') {
         socket.emit('play-again', { roomCode: roomCode });
         createBtn.hidden = true;
+        returnToLobbyBtn.hidden = true;
     } else if (createBtn.textContent === 'Next Round') {
         socket.emit('next-round', roomCode);
         createBtn.hidden = true;
+        returnToLobbyBtn.hidden = true;
     }   
 });
 
@@ -233,9 +244,9 @@ questionField.addEventListener('click', (e) => {
     
     if (e.target.tagName === 'BUTTON' && e.target.closest('.options-grid')) {
 
-        if (roundTimer) clearInterval(roundTimer);
+        // if (roundTimer) clearInterval(roundTimer);
         
-        audioPlayer.pause();
+        // audioPlayer.pause();
         const answer = e.target.dataset.artist;
         hasAnswered = true;
         
@@ -255,4 +266,8 @@ volumeSlider.addEventListener('input', () => {
 
 audioPlayer.addEventListener('ended', () => {
     clearInterval(roundTimer);
+});
+
+returnToLobbyBtn.addEventListener('click', () => {
+    socket.emit('return-to-lobby', { roomCode });
 });

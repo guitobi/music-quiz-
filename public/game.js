@@ -87,6 +87,7 @@ socket.on('players-update', (players) => {
 
 socket.on('playlist-preview', ({ tracks, playlistName }) => {
     const previewContainer = document.getElementById('playlistTracksPreview');
+    previewContainer.hidden = false;
     previewContainer.innerHTML = `<h4>${playlistName}</h4>`;
     
     tracks.forEach(track => {
@@ -236,5 +237,17 @@ document.getElementById('applyPlaylistBtn').addEventListener('click', () => {
             playlistId: playlistId,
             playlistName: playlistName
         });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const autoRoomCode = params.get('roomCode');
+    const autoNickname = params.get('nickname');
+
+    if (autoRoomCode && autoNickname) {
+        nameInputEl.value = autoNickname;
+        roomCodeInput.value = autoRoomCode;
+        joinRoom(); // Викликаємо твою існуючу функцію приєднання
     }
 });
