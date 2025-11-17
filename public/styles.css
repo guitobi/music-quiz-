@@ -170,7 +170,7 @@ button:focus {
 }
 
 /* =================================== */
-/* == LOBBY VISIBILITY TOGGLE (НОВІ ПРАВИЛА) */
+/* == LOBBY VISIBILITY TOGGLE  */
 /* =================================== */
 
 #active-lobby-content {
@@ -284,7 +284,7 @@ body.active-lobby {
     background-color: var(--bg-deep);
     border-radius: var(--radius);
     padding: 1rem;
-    margin-top: 1rem;
+    margin: 1rem;
     max-height: 300px;
     overflow-y: auto;
 }
@@ -353,10 +353,30 @@ body.active-lobby {
     height: 40px;
 }
 
+.settings-container {
+    display: flex;
+    flex-direction: column;
+}
 
+#totalRounds {
+    width: 15%;
+}
+
+.round-container {
+    white-space: nowrap;
+    margin: 1rem 1rem 1rem 0;
+}
+
+.form-group h4 {
+    padding: 0.5rem;
+}
 /* =================================== */
 /* == GAME (game.html) */
 /* =================================== */
+
+label {
+    padding: 0.5rem;
+}
 
 .gameContainer {
     display: grid;
@@ -388,24 +408,25 @@ body.active-lobby {
     font-size: 0.9rem;
 }
 
-input[type="range"]#volumeSlider {
+input[type="range"].slider {
     -webkit-appearance: none; 
     appearance: none;
     width: 100%;
     padding: 0;
     background-color: transparent;
     border: none;
-    height: 40px; 
+    padding: 1rem;
+    /* height: 40px;  */
 }
 
-input[type="range"]#volumeSlider::-webkit-slider-runnable-track {
+input[type="range"].slider::-webkit-slider-runnable-track {
     background: var(--bg-deep);
     height: 6px;
     border-radius: 5px;
     border: 1px solid var(--border-color);
 }
 
-input[type="range"]#volumeSlider::-webkit-slider-thumb {
+input[type="range"].slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 18px;
@@ -456,7 +477,7 @@ input[type="range"]#volumeSlider::-webkit-slider-thumb {
     font-size: 1.5rem;
     font-weight: 700;
 }
-.questionField h3 .highlight {
+.questionField h3 .highlight, .highlight {
     color: var(--accent);
     font-weight: 900;
 }

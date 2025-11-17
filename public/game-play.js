@@ -13,6 +13,13 @@ const params = new URLSearchParams(window.location.search);
 const roomCode = params.get('roomCode');
 const nickname = params.get('nickname');
 
+const savedVolume = localStorage.getItem('volume')
+
+if (savedVolume && !isNaN(savedVolume)) {
+    volumeSlider.value = savedVolume;
+    audioPlayer.volume = savedVolume;
+}
+
 let currentQuestion = null;
 let hasAnswered = false;
 let isHost = false;
@@ -31,12 +38,13 @@ socket.on('players-update', players => {
     });
 });
 
-socket.on('new-round', ({ question, currentRound, totalRounds, url }) => {
+socket.on('new-round', ({ question, currentRound, totalRounds, url, duration }) => {
     audioPlayer.volume = volumeSlider.value;
     audioPlayer.src = url;
     audioPlayer.play();
     renderQuestionRoom(question, currentRound, totalRounds);
-    createTimer();
+    // createTimer();
+    createTimerWithTime(duration);
 });
 
 socket.on('submit-result', result => {
@@ -121,7 +129,7 @@ socket.on('new-host', () => {
     isHost = true;
 });
 
-socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion, timeLeft, audioUrl }) => {
+socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion, timeLeft, audioUrl, timeElapsed }) => {
     console.log
     currentQuestion = curQuestion;
     renderQuestionRoom(curQuestion, currentRound, totalRounds);
@@ -129,6 +137,7 @@ socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion, timeLeft
     // Запускаємо аудіо якщо є URL
     if (audioUrl) {
         audioPlayer.src = audioUrl;
+        audioPlayer.currentTime = timeElapsed
         audioPlayer.play().catch(err => {
             console.log('Autoplay blocked:', err);
         });
@@ -140,13 +149,15 @@ socket.on('sync-game-state', ({ currentRound, totalRounds, curQuestion, timeLeft
 
 socket.on('room-joined', ({userNickname, roomCode, Host }) => {
     isHost = Host;
-    if (isHost === true) socket.emit('start-round', roomCode);
+    if (isHost === true && currentQuestion === null) socket.emit('start-round', roomCode);
     // Показуємо кнопку тільки якщо гра не почалась
-    if (isHost && !document.querySelector('#timer') && currentQuestion === null && questionField.querySelector('h3')?.textContent !== 'Loading questions...') { 
-        createBtn.textContent = 'Start Round';
-        createBtn.hidden = false;
-        questionField.appendChild(createBtn); 
-    }
+
+    
+    // if (isHost && !document.querySelector('#timer') && currentQuestion === null && questionField.querySelector('h3')?.textContent !== 'Loading questions...') { 
+    //     createBtn.textContent = 'Start Round';
+    //     createBtn.hidden = false;
+    //     questionField.appendChild(createBtn); 
+    // }
 });
 
 socket.on('error-message', (message) => {
@@ -262,6 +273,7 @@ questionField.addEventListener('click', (e) => {
 
 volumeSlider.addEventListener('input', () => {
     audioPlayer.volume = volumeSlider.value;
+    localStorage.setItem('volume', volumeSlider.value);
 });
 
 audioPlayer.addEventListener('ended', () => {

@@ -49,11 +49,20 @@
                     </div>
                     <div id="playlistTracksPreview" class="playlist-preview" hidden></div>
                     <div id="host-controls" hidden>
-                        <h4>Change Playlist (Host Only)</h4>
-                        <div class="form-group">
-                            <label for="playlistIdInput">Spotify Playlist ID:</label>
-                            <input id="playlistIdInput" type="text" placeholder="37i9dQZF1DXcBWIGoYBM5M">
+                        <div class="settings-container">
+                            <label for="durationSlider">Round Duration: <span id="durationSliderDisplay" class="highlight">15</span> </label>
+                            <input type="range" id="durationSlider" class="slider" min="5" max="30" step="1" value="15">
+                            <div class="round-container">
+                                <label for="totalRounds" class="totalRoundsLabel">Total Rounds: </label>
+                                <input type="text" id="totalRounds" value="5">
+                            </div>   
                         </div>
+                           
+                            <div class="form-group">
+                                <h4>Change Playlist (Host Only)</h4>
+                                <label for="playlistIdInput">Spotify Playlist ID:</label>
+                                <input id="playlistIdInput" type="text" placeholder="37i9dQZF1DXcBWIGoYBM5M">
+                            </div>
                         <button id="applyPlaylistBtn" class="btn-primary">Apply</button>
                         <div class="preset-buttons">
                             <button data-id="5jFLTgrfk1bPDOpVzF45kS" data-name="Rock Anthems">Rock</button>

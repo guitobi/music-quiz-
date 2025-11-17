@@ -26,20 +26,10 @@ io.on('connection', socket => {
        io.to(roomCode).emit('message', {userNickname, text});
     });
 
-    // socket.on('create-room', playerName => {
-    //     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    //     rooms[roomCode] = { gameIsStarted: false, players: {} };
-    //     rooms[roomCode].players[socket.id] = { name: playerName };
-    //     socket.room = roomCode;
-    //     socket.join(roomCode);
-    //     socket.emit('room-created', ({playerName , roomCode}));
-    //     broadcastPlayersUpdate(roomCode);
-    // });
-
     app.post('/api/rooms', (req, res) => {
         const playerName = req.body.playerName;
         const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        rooms[roomCode] = { gameIsStarted: false, players: {}, playlistID: process.env.SPOTIFY_PLAYLIST_ID, playlistName: 'Rock of all time' };
+        rooms[roomCode] = { gameIsStarted: false, players: {}, playlistID: process.env.SPOTIFY_PLAYLIST_ID, playlistName: 'Rock of all time', roundDuration: 15, totalRounds: 5 };
         res.json({ roomCode: roomCode });
     });
 
@@ -136,16 +126,19 @@ io.on('connection', socket => {
         // Якщо гра йде і раунд НЕ закінчився - синхронізуємо стан гри
         if (rooms[roomCode].gameIsStarted && !rooms[roomCode].roundOverSent) {
             // Обчислюємо скільки часу залишилось
-            const timeLeft = rooms[roomCode].roundStartTime 
-                ? Math.max(0, 15 - Math.floor((Date.now() - rooms[roomCode].roundStartTime) / 1000))
-                : 15;
-            
+            const timeLeft = rooms[roomCode].roundStartTime
+                ? Math.max(0, rooms[roomCode].roundDuration - Math.floor((Date.now() - rooms[roomCode].roundStartTime) / 1000))
+                : rooms[roomCode].roundDuration;
+
+
+            const timeElapsed = rooms[roomCode].roundDuration - timeLeft;
             io.to(socket.id).emit('sync-game-state', {
                 currentRound: rooms[roomCode].currentRound, 
                 totalRounds: rooms[roomCode].totalRounds, 
                 curQuestion: rooms[roomCode].currentQuestion,
                 timeLeft: timeLeft,
-                audioUrl: rooms[roomCode].currentQuestion?.url
+                audioUrl: rooms[roomCode].currentQuestion?.url,
+                timeElapsed: timeElapsed
             });
         } 
         // Якщо гра йде і раунд ЗАКІНЧИВСЯ - відправляємо результати раунду
@@ -365,6 +358,16 @@ io.on('connection', socket => {
         io.to(roomCode).emit('lobby-redirect', { roomCode });
     });
 
+    socket.on('duration-change', ({ roundDuration, roomCode }) => {
+        if (!rooms[roomCode].players[socket.id].isHost) return;
+        rooms[roomCode].roundDuration = roundDuration;
+    });
+
+    socket.on('total-rounds-change', ({ totalRounds, roomCode }) => {
+        if (!rooms[roomCode].players[socket.id].isHost) return;
+        rooms[roomCode].totalRounds =  totalRounds;
+    });
+
 });
 
 // функція для перших 10 пісень у лобі
@@ -409,7 +412,8 @@ const startNewRound = async (roomCode) => {
                         question: rooms[roomCode].currentQuestion,
                         currentRound: rooms[roomCode].currentRound,
                         totalRounds: rooms[roomCode].totalRounds,
-                        url: nextQuestion.url
+                        url: nextQuestion.url,
+                        duration: rooms[roomCode].roundDuration
                     });
                 
                 rooms[roomCode].roundOverSent = false;
@@ -443,7 +447,7 @@ const startNewRound = async (roomCode) => {
                         results: infoToSend,
                         correctAnswer: rooms[roomCode].currentQuestion
                     });
-                }, 15000);
+                }, rooms[roomCode].roundDuration * 1000);
             }
         } catch (err) {
             console.error('Критична помилка в start-round:', err);
@@ -464,7 +468,7 @@ const startNewGame = async (roomCode, socket) => {
 
     rooms[roomCode].gameIsStarted = true;
     rooms[roomCode].currentRound = 0;
-    rooms[roomCode].totalRounds = 5;
+    // rooms[roomCode].totalRounds = 5;
     Object.values(rooms[roomCode].players).forEach(player => player.score = 0);
     broadcastPlayersUpdate(roomCode);
 

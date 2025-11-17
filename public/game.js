@@ -19,6 +19,9 @@ const roomInfo = document.querySelector('.roomInfo');
 // const playersListDiv = document.getElementById('playerList'); // Цей селектор більше не потрібен у такому вигляді
 const roomCodeInput = document.querySelector('.roomCode');
 const volumeSlider = document.getElementById('volumeSlider'); 
+const roundDurationSlider = document.querySelector('#durationSlider');
+const durationSliderDisplay = document.querySelector('#durationSliderDisplay');
+const totalRoundsInput = document.querySelector('#totalRounds');
 
 // селектори щоб забрати їх з екрану при приєднанні до кімнати
 const forms = document.querySelector('.form-group');
@@ -194,15 +197,6 @@ createRoomBtn.addEventListener('click', createRoom);
 joinRoomBtn.addEventListener('click', joinRoom);
 startGameBtn.addEventListener('click', startGame);
 
-if (volumeSlider) { // Додаємо перевірку, бо в лобі слайдера немає
-    volumeSlider.addEventListener('input', () => {
-        socket.emit('volume-change', {
-            roomCode: currentRoom,
-            volume: volumeSlider.value
-        });
-    });
-}
-
 inputEl.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         messageSendBtnEl.click();
@@ -251,3 +245,15 @@ document.addEventListener('DOMContentLoaded', () => {
         joinRoom(); // Викликаємо твою існуючу функцію приєднання
     }
 });
+
+roundDurationSlider.oninput = () => {
+    durationSliderDisplay.innerHTML = roundDurationSlider.value;
+};
+
+roundDurationSlider.addEventListener('change', () => {
+    socket.emit('duration-change', { roundDuration: roundDurationSlider.value, roomCode: currentRoom });
+});
+
+totalRoundsInput.addEventListener('change', () => {
+    socket.emit('total-rounds-change', { totalRounds: totalRoundsInput.value, roomCode: currentRoom });
+})
