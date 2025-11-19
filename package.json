@@ -2,7 +2,8 @@
   "name": "music-quiz",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
+  "start": "node server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,6 +14,7 @@
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "fly": "^4.6.16",
     "socket.io": "^4.8.1",
     "spotify-web-api-node": "^5.0.2"
   },
