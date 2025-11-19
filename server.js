@@ -12,7 +12,7 @@ const SpotifyApi = new SpotifyWebApi({
     clientId: process.env.SPOTIFY_CLIENT_ID,
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET
 });
-const port = 3030;
+const port = process.env.PORT || 3030;
  
 app.use(express.static('public'));
 app.use(express.json());
@@ -634,7 +634,7 @@ const initializeSpotify = async () => {
 const startServer = async () => {
     await initializeSpotify();
     setInterval(initializeSpotify, 3300000);
-    server.listen(port, () => {
+    server.listen(port, '0.0.0.0', () => {
     console.log(`Server started on port ${port}`)
 });
 };
