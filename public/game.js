@@ -103,6 +103,7 @@ socket.on('playlist-preview', ({ tracks, playlistName }) => {
 
 socket.on('playlist-updated', ({ playlistId, playlistName, hostId }) => {
     document.getElementById('currentPlaylistName').textContent = playlistName;
+
     if (socket.id !== hostId) {
         document.getElementById('playlistIdInput').value = playlistId;
     }
@@ -175,7 +176,27 @@ const startGame = () => {
     socket.emit('start-game', {roomCode: currentRoom});
 };
 
-// Цей обробник був дубльований, залишаю один
+const extractPlaylistId = (input) => {
+
+    if (!input.includes('/') && !input.includes(':') && input.length > 15) {
+        return input;
+    }
+
+    try {
+        const url = new URL(input);
+        const segments = url.pathname.split('/');
+        const playlistIndex = segments.indexOf('playlist');
+        if (playlistIndex !== -1 && segments[playlistIndex + 1]) {
+            return segments[playlistIndex + 1];
+        }
+    } catch (e) {
+
+    }
+
+    const match = input.match(/playlist[:/]([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
+};
+
 messageSendBtnEl.addEventListener('click', () => {
         if (!currentRoom) {
         alert('У тебе немає друзів (або ти не в кімнаті)');
@@ -220,17 +241,23 @@ document.querySelectorAll('.preset-buttons button').forEach(button => {
 });
 
 document.getElementById('applyPlaylistBtn').addEventListener('click', () => {
-    const playlistId = document.getElementById('playlistIdInput').value.trim();
+    const rawInput = document.getElementById('playlistIdInput').value.trim();
+    
+    const playlistId = extractPlaylistId(rawInput); 
+
     if (playlistId && isHost) {
-        // Тут можна додати логіку для отримання назви плейлиста або використати заглушку
-        const playlistName = playlistId.substring(0, 10) + '...';
-        document.getElementById('currentPlaylistName').textContent = playlistName;
-        
+    
+        document.getElementById('playlistIdInput').value = playlistId;
+   
+        document.getElementById('currentPlaylistName').textContent = "Loading...";
+
         socket.emit('change-playlist', {
             roomCode: currentRoom,
             playlistId: playlistId,
-            playlistName: playlistName
+            playlistName: playlistId 
         });
+    } else {
+        alert("Invalid Playlist URL or ID"); 
     }
 });
 
