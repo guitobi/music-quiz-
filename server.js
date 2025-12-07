@@ -10,10 +10,10 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
   },
-  transports: ['websocket', 'polling'],
-  allowEIO3: true
+  transports: ["websocket", "polling"],
+  allowEIO3: true,
 });
 const SpotifyApi = new SpotifyWebApi({
     clientId: process.env.SPOTIFY_CLIENT_ID,
