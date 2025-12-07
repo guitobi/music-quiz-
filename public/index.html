@@ -1,158 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Music-Quiz</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css">
     <script defer src="game.js"></script>
-  </head>
-  <body>
-    <div class="lobby-container card" id="initial-forms">
-      <h1>GUESS THE ARTIST</h1>
-      <div class="form-group">
-        <label for="nameInput">Your Nickname:</label>
-        <input
-          class="nameInput"
-          id="nameInput"
-          type="text"
-          placeholder="Enter Your Name"
-        />
-      </div>
-      <div class="lobby-section">
-        <h2>Create New Game</h2>
-        <button class="createRoom btn-primary">Create</button>
-      </div>
-      <div class="lobby-section">
-        <h2>Join Existing Game</h2>
+</head>
+<body>
+    <div class="lobby-container card" id="initial-forms"> 
+        <h1>GUESS THE ARTIST</h1>
         <div class="form-group">
-          <label for="roomCode">Room Code:</label>
-          <input
-            class="roomCode"
-            id="roomCode"
-            type="text"
-            placeholder="XXXXXX"
-          />
             <label for="nameInput">Your Nickname:</label>
             <input class="nameInput" id="nameInput" type="text" placeholder="Enter Your Name">
         </div>
-        <button class="joinRoom">Join</button>
-      </div>
-      <div class="error-div"></div>
-      <div class="roomInfo"></div>
+        <div class="lobby-section">
+            <h2>Create New Game</h2>
+            <button class="createRoom btn-primary">Create</button>
+        </div>
+        <div class="lobby-section">
+            <h2>Join Existing Game</h2>
+            <div class="form-group">
+                <label for="roomCode">Room Code:</label>
+                <input class="roomCode" id="roomCode" type="text" placeholder="XXXXXX">
+            </div>
+            <button class="joinRoom">Join</button>
+        </div>
+        <div class="error-div"></div>
+        <div class="roomInfo"></div>
     </div>
-
+    
     <div id="active-lobby-content">
-      <div class="active-lobby-grid">
-        <div class="lobby-column">
-          <div id="playersList" class="card">
-            <h3>Players</h3>
-            <div class="player-list-items"></div>
-          </div>
-        </div>
-
-        <div class="lobby-column">
-          <div id="playlist-selection-section" class="card">
-            <h3>Playlist Info</h3>
-            <div class="playlist-info">
-              <p>
-                <strong>Room Code:</strong> <span id="displayRoomCode"></span>
-              </p>
-              <p>
-                Current Playlist:
-                <span id="currentPlaylistName">Rock of all time</span>
-              </p>
-            </div>
-            <div
-              id="playlistTracksPreview"
-              class="playlist-preview"
-              hidden
-            ></div>
-            <div id="host-controls" hidden>
-              <div class="settings-container">
-                <label for="durationSlider"
-                  >Round Duration:
-                  <span id="durationSliderDisplay" class="highlight">15</span>
-                </label>
-                <input
-                  type="range"
-                  id="durationSlider"
-                  class="slider"
-                  min="5"
-                  max="30"
-                  step="1"
-                  value="15"
-                />
-                <div class="round-container">
-                  <label for="totalRounds" class="totalRoundsLabel"
-                    >Total Rounds:
-                  </label>
-                  <input type="text" id="totalRounds" value="5" />
+        <div class="active-lobby-grid">
+            
+            <div class="lobby-column">
+                <div id="playersList" class="card">
+                    <h3>Players</h3>
+                    <div class="player-list-items"></div>
                 </div>
-              </div>
-              <div class="form-group">
-                <h4>Search Playlists</h4>
-                <input
-                  id="playlistSearchInput"
-                  type="text"
-                  placeholder="Search: michael jackson, rock, 80s..."
-                />
-                <button id="searchPlaylistBtn" class="btn-primary">
-                  Search
-                </button>
-              </div>
-
-              <div id="searchResults" class="search-results" hidden></div>
-              <div class="form-group">
-                <h4>Change Playlist (Host Only)</h4>
-                <label for="playlistIdInput">Spotify Playlist ID or URL:</label>
-                <input
-                  id="playlistIdInput"
-                  type="text"
-                  placeholder="37i9dQZF1DXcBWIGoYBM5M"
-                />
-              </div>
-              <button id="applyPlaylistBtn" class="btn-primary">Apply</button>
-              <div class="preset-buttons">
-                <button
-                  data-id="5jFLTgrfk1bPDOpVzF45kS"
-                  data-name="Rock Anthems"
-                >
-                  Rock
-                </button>
-                <button data-id="4A8pN5orMQBh72D19n1xDb" data-name="90s Hits">
-                  90s Hits
-                </button>
-                <button data-id="6mtYuOxzl58vSGnEDtZ9uB" data-name="Pop Hits">
-                  Pop
-                </button>
-                <button data-id="56un2laj6rmMUKhDlkUkAY" data-name="Hip Hop">
-                  Hip Hop
-                </button>
-              </div>
-              <button class="startGame btn-primary">Start Game</button>
             </div>
-          </div>
-        </div>
-
-        <div class="lobby-column">
-          <div class="messageContainer card">
-            <h3>Chat</h3>
-            <div class="chat-messages" id="chat-messages"></div>
-            <div class="chat-input">
-              <input
-                type="text"
-                id="messageInput"
-                placeholder="Enter your message"
-              />
-              <button class="send-btn btn">Send</button>
+            
+            <div class="lobby-column">
+                <div id="playlist-selection-section" class="card">
+                    <h3>Playlist Info</h3>
+                    <div class="playlist-info">
+                        <p><strong>Room Code:</strong> <span id="displayRoomCode"></span></p>
+                        <p>Current Playlist: <span id="currentPlaylistName">Rock of all time</span></p>
+                    </div>
+                    <div id="playlistTracksPreview" class="playlist-preview" hidden></div>
+                    <div id="host-controls" hidden>
+                        <div class="settings-container">
+                            <label for="durationSlider">Round Duration: <span id="durationSliderDisplay" class="highlight">15</span> </label>
+                            <input type="range" id="durationSlider" class="slider" min="5" max="30" step="1" value="15">
+                            <div class="round-container">
+                                <label for="totalRounds" class="totalRoundsLabel">Total Rounds: </label>
+                                <input type="text" id="totalRounds" value="5">
+                            </div>   
+                        </div>
+                           
+                            <div class="form-group">
+                                <h4>Change Playlist (Host Only)</h4>
+                                <label for="playlistIdInput">Spotify Playlist ID or URL:</label>
+                                <input id="playlistIdInput" type="text" placeholder="37i9dQZF1DXcBWIGoYBM5M">
+                            </div>
+                        <button id="applyPlaylistBtn" class="btn-primary">Apply</button>
+                        <div class="preset-buttons">
+                            <button data-id="5jFLTgrfk1bPDOpVzF45kS" data-name="Rock Anthems">Rock</button>
+                            <button data-id="4A8pN5orMQBh72D19n1xDb" data-name="90s Hits">90s Hits</button>
+                            <button data-id="6mtYuOxzl58vSGnEDtZ9uB" data-name="Pop Hits">Pop</button>
+                            <button data-id="56un2laj6rmMUKhDlkUkAY" data-name="Hip Hop">Hip Hop</button>
+                        </div>
+                        <button class="startGame btn-primary">Start Game</button>
+                    </div>
+                </div>
             </div>
-          </div>
+            
+            <div class="lobby-column">
+                <div class="messageContainer card">
+                    <h3>Chat</h3>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <div class="chat-input">
+                        <input type="text" id="messageInput" placeholder="Enter your message">
+                        <button class="send-btn btn">Send</button>
+                    </div>
+                </div>
+            </div>
+            
         </div>
-      </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-  </body>
 </body>
 </html>
