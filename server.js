@@ -4,6 +4,8 @@ import http from "http";
 import { Server } from "socket.io";
 import SpotifyWebApi from "spotify-web-api-node";
 import spotifyPreviewFinder from "spotify-preview-finder";
+import SpotifyWebApi from  'spotify-web-api-node'
+import spotifyPreviewFinder from 'spotify-preview-finder';
 
 const app = express();
 const server = http.createServer(app);

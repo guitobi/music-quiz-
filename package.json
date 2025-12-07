@@ -16,10 +16,10 @@
     "express": "^5.1.0",
     "fly": "^4.6.16",
     "socket.io": "^4.8.1",
-    "spotify-web-api-node": "^5.0.2"
+    "spotify-web-api-node": "^5.0.2",
+    "spotify-preview-finder": "^2.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10",
-    "spotify-preview-finder": "^2.1.0"
+    "nodemon": "^3.1.10"
   }
 }
