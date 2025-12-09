@@ -60,6 +60,11 @@ socket.on("room-joined", ({ userNickname, roomCode, Host }) => {
   currentUserNickname = userNickname;
   nameInputEl.value = "";
   roomCodeInput.value = "";
+
+  // Зберігаємо стан в localStorage
+  localStorage.setItem("musicQuizRoom", roomCode);
+  localStorage.setItem("musicQuizNickname", userNickname);
+  localStorage.setItem("musicQuizIsHost", Host);
 });
 
 socket.on("game-started", ({ roomCode }) => {
@@ -95,19 +100,44 @@ socket.on("players-update", (players) => {
         `;
     playerListItems.appendChild(playerElement);
   });
+
+  // Update player count
+  const playerCount = document.getElementById("playerCount");
+  if (playerCount) {
+    playerCount.textContent = players.length;
+  }
 });
 
 socket.on("playlist-preview", ({ tracks, playlistName }) => {
   const previewContainer = document.getElementById("playlistTracksPreview");
   previewContainer.hidden = false;
-  previewContainer.innerHTML = `<h4>${playlistName}</h4>`;
+
+  // Create tracks list container
+  let tracksList = previewContainer.querySelector(".preview-tracks-list");
+  if (!tracksList) {
+    previewContainer.innerHTML =
+      '<h3>Playlist Preview</h3><div class="preview-tracks-list"></div>';
+    tracksList = previewContainer.querySelector(".preview-tracks-list");
+  } else {
+    tracksList.innerHTML = "";
+  }
 
   tracks.forEach((track) => {
     const trackElement = document.createElement("div");
-    trackElement.className = "playlist-track";
-    trackElement.innerHTML = `<strong>${track.name}</strong> - ${track.artist}`;
-    previewContainer.appendChild(trackElement);
+    trackElement.className = "preview-track-item";
+    trackElement.innerHTML = `
+      <div class="track-name">${track.name}</div>
+      <div class="track-artist">${track.artist}</div>
+    `;
+    tracksList.appendChild(trackElement);
   });
+
+  // Update player count
+  const playerCount = document.getElementById("playerCount");
+  if (playerCount) {
+    const players = document.querySelectorAll(".player-item");
+    playerCount.textContent = players.length;
+  }
 });
 
 socket.on("playlist-updated", ({ playlistId, playlistName, hostId }) => {
@@ -268,7 +298,28 @@ document.getElementById("applyPlaylistBtn").addEventListener("click", () => {
   }
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+// Автоматичне відновлення сесії при перезавантаженні
+window.addEventListener("load", () => {
+  const savedRoom = localStorage.getItem("musicQuizRoom");
+  const savedNickname = localStorage.getItem("musicQuizNickname");
+
+  if (savedRoom && savedNickname) {
+    // Перевіряємо чи кімната ще існує
+    fetch(`/api/rooms/${savedRoom}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.exists) {
+          nameInputEl.value = savedNickname;
+          roomCodeInput.value = savedRoom;
+          joinRoom();
+        } else {
+          // Кімната не існує, очищаємо localStorage
+          clearRoomData();
+        }
+      })
+      .catch(() => clearRoomData());
+  }
+
   const params = new URLSearchParams(window.location.search);
   const autoRoomCode = params.get("roomCode");
   const autoNickname = params.get("nickname");
@@ -276,9 +327,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (autoRoomCode && autoNickname) {
     nameInputEl.value = autoNickname;
     roomCodeInput.value = autoRoomCode;
-    joinRoom(); // Викликаємо твою існуючу функцію приєднання
+    joinRoom();
   }
 });
+
+function clearRoomData() {
+  localStorage.removeItem("musicQuizRoom");
+  localStorage.removeItem("musicQuizNickname");
+  localStorage.removeItem("musicQuizIsHost");
+  body.classList.remove("active-lobby");
+}
 
 roundDurationSlider.oninput = () => {
   durationSliderDisplay.innerHTML = roundDurationSlider.value;
@@ -295,5 +353,197 @@ totalRoundsInput.addEventListener("change", () => {
   socket.emit("total-rounds-change", {
     totalRounds: totalRoundsInput.value,
     roomCode: currentRoom,
+  });
+});
+
+// Валідація для цифрових input
+totalRoundsInput.addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/[^0-9]/g, "");
+  if (e.target.value && parseInt(e.target.value) > 20) {
+    e.target.value = "20";
+  }
+  if (e.target.value && parseInt(e.target.value) < 1) {
+    e.target.value = "1";
+  }
+});
+
+// Leave lobby button functionality
+const leaveLobbyBtn = document.getElementById("leaveLobbyBtn");
+if (leaveLobbyBtn) {
+  leaveLobbyBtn.addEventListener("click", () => {
+    const confirmed = confirm("You really want to leave?");
+    if (confirmed) {
+      clearRoomData();
+      socket.disconnect();
+      window.location.reload();
+    }
+  });
+}
+
+// Playlist Search Functionality
+const searchPlaylistBtn = document.getElementById("searchPlaylistBtn");
+const playlistSearchInput = document.getElementById("playlistSearchInput");
+const searchResultsDiv = document.getElementById("searchResults");
+let searchTimeout;
+
+searchPlaylistBtn.addEventListener("click", () => {
+  performPlaylistSearch();
+});
+
+playlistSearchInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    performPlaylistSearch();
+  }
+});
+
+// Debounced search on input
+playlistSearchInput.addEventListener("input", () => {
+  clearTimeout(searchTimeout);
+  const query = playlistSearchInput.value.trim();
+
+  if (query.length < 2) {
+    searchResultsDiv.innerHTML = "";
+    searchResultsDiv.style.display = "none";
+    return;
+  }
+
+  searchTimeout = setTimeout(() => {
+    performPlaylistSearch();
+  }, 500);
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".search-input-wrapper")) {
+    searchResultsDiv.innerHTML = "";
+    searchResultsDiv.style.display = "none";
+  }
+});
+
+async function performPlaylistSearch() {
+  const query = playlistSearchInput.value.trim();
+
+  if (!query) {
+    searchResultsDiv.innerHTML =
+      "<p class='search-message'>Enter a search term</p>";
+    searchResultsDiv.style.display = "flex";
+    return;
+  }
+
+  searchResultsDiv.innerHTML =
+    "<p class='search-message loading'>Searching...</p>";
+  searchResultsDiv.style.display = "flex";
+
+  try {
+    const response = await fetch(
+      `/api/search-playlists?q=${encodeURIComponent(query)}`
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Search failed");
+    }
+
+    if (data.playlists.length === 0) {
+      searchResultsDiv.innerHTML =
+        "<p class='search-message'>No playlists found</p>";
+      searchResultsDiv.style.display = "flex";
+      return;
+    }
+
+    renderSearchResults(data.playlists);
+  } catch (error) {
+    console.error("Search error:", error);
+    searchResultsDiv.innerHTML = `<p class='search-message error'>Error: ${error.message}</p>`;
+    searchResultsDiv.style.display = "flex";
+  }
+}
+
+function renderSearchResults(playlists) {
+  searchResultsDiv.innerHTML = "";
+  searchResultsDiv.style.display = "flex";
+
+  playlists.forEach((playlist) => {
+    const playlistCard = document.createElement("div");
+    playlistCard.className = "playlist-card";
+    playlistCard.innerHTML = `
+      <div class="playlist-image-container">
+        ${
+          playlist.image
+            ? `<img src="${playlist.image}" alt="${playlist.name}" class="playlist-image">`
+            : `<div class="playlist-no-image">♫</div>`
+        }
+      </div>
+      <div class="playlist-info">
+        <div class="playlist-name">${playlist.name}</div>
+        <div class="playlist-details">
+          <span class="playlist-owner">by ${playlist.owner}</span>
+          <span class="playlist-tracks">${playlist.tracks} tracks</span>
+        </div>
+      </div>
+      <button class="btn-select" data-id="${playlist.id}" data-name="${
+      playlist.name
+    }">Select</button>
+    `;
+
+    const selectBtn = playlistCard.querySelector(".btn-select");
+    selectBtn.addEventListener("click", () => {
+      selectPlaylist(playlist.id, playlist.name);
+    });
+
+    searchResultsDiv.appendChild(playlistCard);
+  });
+}
+
+function selectPlaylist(playlistId, playlistName) {
+  document.getElementById("playlistIdInput").value = playlistId;
+  searchResultsDiv.innerHTML = `<p class='search-message success'>Selected: ${playlistName}</p>`;
+  playlistSearchInput.value = "";
+
+  // Сховати dropdown через 2 секунди
+  setTimeout(() => {
+    searchResultsDiv.innerHTML = "";
+    searchResultsDiv.style.display = "none";
+  }, 2000);
+
+  // Автоматично застосувати вибраний плейлист
+  if (isHost) {
+    document.getElementById("currentPlaylistName").textContent = "Loading...";
+    socket.emit("change-playlist", {
+      roomCode: currentRoom,
+      playlistId: playlistId,
+      playlistName: playlistName,
+    });
+  }
+}
+
+// Tab switching functionality
+document.addEventListener("DOMContentLoaded", () => {
+  const tabButtons = document.querySelectorAll(".tab-btn");
+
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const targetTab = button.dataset.tab;
+
+      // Remove active class from all tabs and contents
+      document
+        .querySelectorAll(".tab-btn")
+        .forEach((btn) => btn.classList.remove("active"));
+      document
+        .querySelectorAll(".tab-content")
+        .forEach((content) => content.classList.remove("active"));
+
+      // Add active class to clicked tab and corresponding content
+      button.classList.add("active");
+      document
+        .getElementById(`${targetTab}-tab-content`)
+        .classList.add("active");
+
+      // Clear search results when switching tabs
+      if (targetTab === "manual") {
+        searchResultsDiv.innerHTML = "";
+        playlistSearchInput.value = "";
+      }
+    });
   });
 });

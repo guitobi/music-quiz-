@@ -42,7 +42,7 @@ io.on("connection", (socket) => {
     rooms[roomCode] = {
       gameIsStarted: false,
       players: {},
-      playlistID: process.env.SPOTIFY_PLAYLIST_ID,
+      playlistId: process.env.SPOTIFY_PLAYLIST_ID,
       playlistName: "Rock of all time",
       roundDuration: 15,
       totalRounds: 5,
@@ -56,6 +56,61 @@ io.on("connection", (socket) => {
       res.json({ exists: true });
     } else {
       res.status(404).json({ exists: false, message: "Room not found" });
+    }
+  });
+
+  app.get("/api/search-playlists", async (req, res) => {
+    try {
+      const query = req.query.q;
+
+      if (!query || query.trim() === "") {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+
+      if (!SpotifyApi.getAccessToken()) {
+        await initializeSpotify();
+      }
+
+      const searchResult = await SpotifyApi.searchPlaylists(query, {
+        limit: 20,
+      });
+
+      if (
+        !searchResult.body ||
+        !searchResult.body.playlists ||
+        !searchResult.body.playlists.items
+      ) {
+        return res.json({ playlists: [] });
+      }
+
+      // Фільтруємо плейлисти: виключаємо офіційні Spotify плейлисти та null значення
+      const playlists = searchResult.body.playlists.items
+        .filter((playlist) => {
+          if (!playlist || !playlist.owner) return false;
+          const owner = playlist.owner.display_name?.toLowerCase() || "";
+          const ownerId = playlist.owner.id?.toLowerCase() || "";
+          return owner !== "spotify" && !ownerId.includes("spotify");
+        })
+        .slice(0, 10)
+        .map((playlist) => ({
+          id: playlist.id,
+          name: playlist.name,
+          owner: playlist.owner?.display_name || "Unknown",
+          tracks: playlist.tracks?.total || 0,
+          image:
+            playlist.images && playlist.images[0]
+              ? playlist.images[0].url
+              : null,
+          description: playlist.description || "",
+        }));
+
+      res.json({ playlists });
+    } catch (err) {
+      console.error("Помилка пошуку плейлистів:", err);
+      res.status(500).json({
+        error: "Failed to search playlists",
+        details: err.message,
+      });
     }
   });
 
@@ -113,6 +168,11 @@ io.on("connection", (socket) => {
         roomCode,
         Host: isHost,
       });
+
+      // Send current playlist preview to newly joined player
+      if (rooms[roomCode].playlistId) {
+        loadPlaylistPreview(roomCode, rooms[roomCode].playlistId);
+      }
     }
 
     broadcastPlayersUpdate(roomCode);
@@ -206,6 +266,11 @@ io.on("connection", (socket) => {
       roomCode,
       Host: isHost,
     });
+
+    // Send current playlist preview to rejoined player
+    if (!rooms[roomCode].gameIsStarted && rooms[roomCode].playlistId) {
+      loadPlaylistPreview(roomCode, rooms[roomCode].playlistId);
+    }
 
     broadcastPlayersUpdate(roomCode);
   });
@@ -378,7 +443,7 @@ io.on("connection", (socket) => {
     const player = rooms[roomCode].players[socket.id];
     if (!player || !player.isHost) return;
 
-    rooms[roomCode].playlistID = playlistId;
+    rooms[roomCode].playlistId = playlistId;
     rooms[roomCode].playlistName = playlistName;
     loadPlaylistPreview(roomCode, playlistId);
     io.to(roomCode).emit("playlist-updated", {
@@ -572,7 +637,7 @@ const broadcastPlayersUpdate = (roomCode) => {
 
 const generateQuestion = async (roomCode) => {
   try {
-    const playlist = await SpotifyApi.getPlaylist(rooms[roomCode].playlistID);
+    const playlist = await SpotifyApi.getPlaylist(rooms[roomCode].playlistId);
 
     if (
       !playlist.body ||
