@@ -72,7 +72,7 @@ socket.on("game-started", ({ roomCode }) => {
 });
 
 socket.on("error-nickname-taken", () => {
-  errorDiv.textContent = `This nickname is alredy taken.(єбать ти лох, точно шось з хохлами хотів, та?)`;
+  errorDiv.textContent = `This nickname is alredy taken`;
 });
 
 socket.on("error-game-in-progress", () => {
@@ -194,12 +194,12 @@ const joinRoom = async () => {
     try {
       const res = await fetch(`/api/rooms/${roomCode}`);
       if (!res.ok) {
-        errorDiv.textContent = `ЖОПА з вашим json`;
+        errorDiv.textContent = `Error with JSON: ${res.message}`;
         return;
       }
       const data = await res.json();
       if (!data.exists) {
-        errorDiv.textContent = "ЖОПЖОПА з вашим json ( ігор )";
+        errorDiv.textContent = "Error with JSON";
         return;
       }
       socket.emit("join-room", { userNickname, roomCode });
@@ -237,7 +237,7 @@ const extractPlaylistId = (input) => {
 
 messageSendBtnEl.addEventListener("click", () => {
   if (!currentRoom) {
-    alert("У тебе немає друзів (або ти не в кімнаті)");
+    alert("You are not in the room");
     return;
   }
 
